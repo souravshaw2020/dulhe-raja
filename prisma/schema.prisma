@@ -1,0 +1,59 @@
+
+generator client {
+  provider = "prisma-client-js" 
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Category {
+  SHERWANI
+  KURTA
+  PYJAMA
+  INDO_WESTERN
+}
+
+model Product {
+  id                    String           @id @default(cuid())
+  name                  String
+  description           String?
+  category              Category
+  fabricType            String
+  basePrice             Decimal          @db.Decimal(10, 2)
+  allowsCustomTailoring Boolean          @default(true)
+  
+  images                ProductImage[]
+  variants              ProductVariant[]
+  
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  
+  @@map("products")
+}
+
+model ProductVariant {
+  id              String   @id @default(cuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  color           String
+  size            String
+  sku             String   @unique
+  stock           Int      @default(0)
+  priceAdjustment Decimal? @db.Decimal(10, 2) 
+  
+  @@map("product_variants")
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  s3Url     String
+  altText   String?
+  isPrimary Boolean  @default(false)
+  
+  @@map("product_images")
+}
