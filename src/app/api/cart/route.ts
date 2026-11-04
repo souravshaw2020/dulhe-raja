@@ -100,3 +100,39 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Failed to remove item" }, { status: 500 });
   }
 }
+
+const updateCartSchema = z.object({
+  id: z.string().min(1, "Cart item ID is required"),
+  quantity: z.number().int().min(1, "Quantity must be at least 1"),
+});
+
+// PATCH /api/cart - Update item quantity
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const result = updateCartSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: "Invalid input", details: result.error.format() },
+        { status: 400 }
+      );
+    }
+
+    const { id, quantity } = result.data;
+
+    const updatedItem = await prisma.cartItem.update({
+      where: { id },
+      data: { quantity },
+      include: {
+        product: true,
+        variant: true,
+      },
+    });
+
+    return NextResponse.json(updatedItem);
+  } catch (error) {
+    console.error("Error updating cart quantity:", error);
+    return NextResponse.json({ error: "Failed to update cart item" }, { status: 500 });
+  }
+}
