@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Category, Prisma } from "@prisma/client";
-
 import { z } from "zod";
 
-
+// ==========================================
+// 1. ZOD SCHEMAS FOR VALIDATION (POST)
+// ==========================================
 const variantSchema = z.object({
   color: z.string().min(1, "Color is required"),
   size: z.string().min(1, "Size is required"),
@@ -19,7 +20,6 @@ const imageSchema = z.object({
   isPrimary: z.boolean().default(false),
 });
 
-
 const productSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   description: z.string().optional(),
@@ -31,27 +31,29 @@ const productSchema = z.object({
   images: z.array(imageSchema).min(1, "At least one image is required"),
 });
 
+// ==========================================
+// 2. POST ROUTE: CREATE A NEW PRODUCT
+// ==========================================
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-
+    // Validate incoming JSON against the Zod schema
     const result = productSchema.safeParse(body);
 
-    
     if (!result.success) {
       return NextResponse.json(
         { 
           error: "Invalid product data", 
-          details: result.error.format()
+          details: result.error.format() 
         }, 
         { status: 400 }
       );
     }
 
-    
     const validatedData = result.data;
 
+    // Insert into the database with nested writes
     const newProduct = await prisma.product.create({
       data: {
         name: validatedData.name,
@@ -84,11 +86,13 @@ export async function POST(request: Request) {
   }
 }
 
-
+// ==========================================
+// 3. GET ROUTE: FETCH, FILTER, & PAGINATE
+// ==========================================
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   
-  
+  // Extract URL parameters
   const searchQuery = searchParams.get('q')?.trim();
   const categoryParam = searchParams.get('category');
   const minPriceParam = searchParams.get('minPrice');
@@ -98,17 +102,17 @@ export async function GET(request: Request) {
   const colorParam = searchParams.get('color');
   const inStockOnly = searchParams.get('inStock') === 'true';
   
-  
+  // Pagination setup
   const page = parseInt(searchParams.get('page') || '1', 10);
   const limit = parseInt(searchParams.get('limit') || '10', 10);
   const safePage = Math.max(1, page);
   const safeLimit = Math.max(1, Math.min(100, limit));
   const skip = (safePage - 1) * safeLimit;
 
-  
+  // Initialize the dynamic WHERE clause
   const whereClause: Prisma.ProductWhereInput = {};
 
-  
+  // Apply Text Search
   if (searchQuery) {
     whereClause.OR = [
       { name: { contains: searchQuery, mode: 'insensitive' } },
@@ -116,7 +120,7 @@ export async function GET(request: Request) {
     ];
   }
 
-  
+  // Apply Category Filter
   if (categoryParam) {
     const validCategories = Object.values(Category) as string[];
     if (!validCategories.includes(categoryParam)) {
@@ -125,14 +129,14 @@ export async function GET(request: Request) {
     whereClause.category = categoryParam as Category;
   }
 
-  
+  // Apply Price Filters
   if (minPriceParam || maxPriceParam) {
     whereClause.basePrice = {};
     if (minPriceParam) whereClause.basePrice.gte = parseFloat(minPriceParam);
     if (maxPriceParam) whereClause.basePrice.lte = parseFloat(maxPriceParam);
   }
 
-  
+  // Apply Relational Filters (Size, Color, Stock)
   const andConditions: Prisma.ProductWhereInput[] = [];
   if (sizeParam) andConditions.push({ variants: { some: { size: sizeParam } } });
   if (colorParam) andConditions.push({ variants: { some: { color: colorParam } } });
@@ -142,14 +146,14 @@ export async function GET(request: Request) {
     whereClause.AND = andConditions;
   }
 
-  
+  // Apply Sorting Logic
   let orderByClause: Prisma.ProductOrderByWithRelationInput = { createdAt: 'desc' };
   if (sortParam === 'price_asc') orderByClause = { basePrice: 'asc' };
   else if (sortParam === 'price_desc') orderByClause = { basePrice: 'desc' };
   else if (sortParam === 'newest') orderByClause = { createdAt: 'desc' };
 
   try {
-    
+    // Execute the count and fetch concurrently
     const [totalProducts, products] = await Promise.all([
       prisma.product.count({ where: whereClause }),
       prisma.product.findMany({
