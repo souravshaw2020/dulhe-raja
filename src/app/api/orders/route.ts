@@ -122,6 +122,15 @@ export async function POST(request: Request) {
       return newOrder;
     });
 
+    await prisma.customerSubscriber.upsert({
+      where: { phone: customerInfo.customerPhone },
+      update: { name: customerInfo.customerName },
+      create: {
+        name: customerInfo.customerName,
+        phone: customerInfo.customerPhone,
+      },
+    });
+
     return NextResponse.json(order, { status: 201 });
   } catch (error) {
     console.error("Order processing error:", error);
@@ -141,17 +150,26 @@ export async function GET(request: Request) {
   const statusParam = searchParams.get("status");
   const paymentStatusParam = searchParams.get("paymentStatus");
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-  const limit = Math.max(1, Math.min(100, parseInt(searchParams.get("limit") || "10", 10)));
+  const limit = Math.max(
+    1,
+    Math.min(100, parseInt(searchParams.get("limit") || "10", 10)),
+  );
   const skip = (page - 1) * limit;
 
   const where: Prisma.OrderWhereInput = {};
 
   if (email) where.customerEmail = { equals: email, mode: "insensitive" };
   if (phone) where.customerPhone = phone;
-  if (statusParam && Object.values(OrderStatus).includes(statusParam as OrderStatus)) {
+  if (
+    statusParam &&
+    Object.values(OrderStatus).includes(statusParam as OrderStatus)
+  ) {
     where.status = statusParam as OrderStatus;
   }
-  if (paymentStatusParam && Object.values(PaymentStatus).includes(paymentStatusParam as PaymentStatus)) {
+  if (
+    paymentStatusParam &&
+    Object.values(PaymentStatus).includes(paymentStatusParam as PaymentStatus)
+  ) {
     where.paymentStatus = paymentStatusParam as PaymentStatus;
   }
 
@@ -193,6 +211,9 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("Error fetching orders:", error);
-    return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch orders" },
+      { status: 500 },
+    );
   }
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Category, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { getAdminSession } from "@/lib/auth";
+import { broadcastToCustomers } from "@/lib/notifications";
 
 // ==========================================
 // 1. ZOD SCHEMAS FOR VALIDATION (POST)
@@ -30,6 +31,7 @@ const productSchema = z.object({
   allowsCustomTailoring: z.boolean().default(true),
   variants: z.array(variantSchema).min(1, "At least one variant is required"),
   images: z.array(imageSchema).min(1, "At least one image is required"),
+  notifyCustomers: z.boolean().default(true),
 });
 
 // ==========================================
@@ -37,23 +39,23 @@ const productSchema = z.object({
 // ==========================================
 export async function POST(request: Request) {
   const session = await getAdminSession();
-if (!session) {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
-  
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
-    
+
     // Validate incoming JSON against the Zod schema
     const result = productSchema.safeParse(body);
 
     if (!result.success) {
       return NextResponse.json(
-        { 
-          error: "Invalid product data", 
-          details: result.error.format() 
-        }, 
-        { status: 400 }
+        {
+          error: "Invalid product data",
+          details: result.error.format(),
+        },
+        { status: 400 },
       );
     }
 
@@ -69,7 +71,7 @@ if (!session) {
         basePrice: validatedData.basePrice,
         allowsCustomTailoring: validatedData.allowsCustomTailoring,
         variants: {
-          create: validatedData.variants, 
+          create: validatedData.variants,
         },
         images: {
           create: validatedData.images,
@@ -81,13 +83,29 @@ if (!session) {
       },
     });
 
+    const primaryImage =
+      newProduct.images.find((img) => img.isPrimary)?.s3Url ||
+      newProduct.images[0]?.s3Url;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+    if (validatedData.notifyCustomers) {
+      await broadcastToCustomers({
+        title: `New Arrival: ${newProduct.name}`,
+        message: `Explore our latest ${newProduct.fabricType} ${newProduct.category.toLowerCase()} starting at ₹${newProduct.basePrice}.`,
+        imageUrl: primaryImage,
+        targetUrl: `${appUrl}/products/${newProduct.id}`,
+        channel: "BOTH",
+      });
+    }
+
     return NextResponse.json(newProduct, { status: 201 });
-    
+
+    return NextResponse.json(newProduct, { status: 201 });
   } catch (error) {
     console.error("Error creating product:", error);
     return NextResponse.json(
       { error: "Failed to save the product to the catalog" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -96,26 +114,26 @@ if (!session) {
 // 3. GET ROUTE: FETCH, FILTER, & PAGINATE
 // ==========================================
 export async function GET(request: Request) {
-const session = await getAdminSession();
-if (!session) {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { searchParams } = new URL(request.url);
-  
+
   // Extract URL parameters
-  const searchQuery = searchParams.get('q')?.trim();
-  const categoryParam = searchParams.get('category');
-  const minPriceParam = searchParams.get('minPrice');
-  const maxPriceParam = searchParams.get('maxPrice');
-  const sortParam = searchParams.get('sort');
-  const sizeParam = searchParams.get('size');
-  const colorParam = searchParams.get('color');
-  const inStockOnly = searchParams.get('inStock') === 'true';
-  
+  const searchQuery = searchParams.get("q")?.trim();
+  const categoryParam = searchParams.get("category");
+  const minPriceParam = searchParams.get("minPrice");
+  const maxPriceParam = searchParams.get("maxPrice");
+  const sortParam = searchParams.get("sort");
+  const sizeParam = searchParams.get("size");
+  const colorParam = searchParams.get("color");
+  const inStockOnly = searchParams.get("inStock") === "true";
+
   // Pagination setup
-  const page = parseInt(searchParams.get('page') || '1', 10);
-  const limit = parseInt(searchParams.get('limit') || '10', 10);
+  const page = parseInt(searchParams.get("page") || "1", 10);
+  const limit = parseInt(searchParams.get("limit") || "10", 10);
   const safePage = Math.max(1, page);
   const safeLimit = Math.max(1, Math.min(100, limit));
   const skip = (safePage - 1) * safeLimit;
@@ -126,8 +144,8 @@ if (!session) {
   // Apply Text Search
   if (searchQuery) {
     whereClause.OR = [
-      { name: { contains: searchQuery, mode: 'insensitive' } },
-      { description: { contains: searchQuery, mode: 'insensitive' } }
+      { name: { contains: searchQuery, mode: "insensitive" } },
+      { description: { contains: searchQuery, mode: "insensitive" } },
     ];
   }
 
@@ -149,19 +167,24 @@ if (!session) {
 
   // Apply Relational Filters (Size, Color, Stock)
   const andConditions: Prisma.ProductWhereInput[] = [];
-  if (sizeParam) andConditions.push({ variants: { some: { size: sizeParam } } });
-  if (colorParam) andConditions.push({ variants: { some: { color: colorParam } } });
-  if (inStockOnly) andConditions.push({ variants: { some: { stock: { gt: 0 } } } });
+  if (sizeParam)
+    andConditions.push({ variants: { some: { size: sizeParam } } });
+  if (colorParam)
+    andConditions.push({ variants: { some: { color: colorParam } } });
+  if (inStockOnly)
+    andConditions.push({ variants: { some: { stock: { gt: 0 } } } });
 
   if (andConditions.length > 0) {
     whereClause.AND = andConditions;
   }
 
   // Apply Sorting Logic
-  let orderByClause: Prisma.ProductOrderByWithRelationInput = { createdAt: 'desc' };
-  if (sortParam === 'price_asc') orderByClause = { basePrice: 'asc' };
-  else if (sortParam === 'price_desc') orderByClause = { basePrice: 'desc' };
-  else if (sortParam === 'newest') orderByClause = { createdAt: 'desc' };
+  let orderByClause: Prisma.ProductOrderByWithRelationInput = {
+    createdAt: "desc",
+  };
+  if (sortParam === "price_asc") orderByClause = { basePrice: "asc" };
+  else if (sortParam === "price_desc") orderByClause = { basePrice: "desc" };
+  else if (sortParam === "newest") orderByClause = { createdAt: "desc" };
 
   try {
     // Execute the count and fetch concurrently
@@ -173,10 +196,10 @@ if (!session) {
         take: safeLimit,
         include: {
           images: { where: { isPrimary: true }, take: 1 },
-          variants: { select: { size: true, color: true, stock: true } }
+          variants: { select: { size: true, color: true, stock: true } },
         },
-        orderBy: orderByClause
-      })
+        orderBy: orderByClause,
+      }),
     ]);
 
     return NextResponse.json({
@@ -186,10 +209,13 @@ if (!session) {
         page: safePage,
         limit: safeLimit,
         totalPages: Math.ceil(totalProducts / safeLimit),
-      }
+      },
     });
   } catch (error) {
     console.error("Database query failed:", error);
-    return NextResponse.json({ error: 'Failed to fetch catalog' }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch catalog" },
+      { status: 500 },
+    );
   }
 }
