@@ -154,3 +154,36 @@ model OrderItem {
 
   @@map("order_items")
 }
+
+enum NotificationChannel {
+  WHATSAPP
+  SMS
+  BOTH
+}
+
+model CustomerSubscriber {
+  id            String   @id @default(cuid())
+  name          String?
+  phone         String   @unique // E.164 format, e.g., +919876543210
+  whatsappOptIn Boolean  @default(true)
+  smsOptIn      Boolean  @default(true)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("customer_subscribers")
+}
+
+model NotificationCampaign {
+  id          String              @id @default(cuid())
+  title       String
+  message     String
+  imageUrl    String?
+  targetUrl   String?
+  channel     NotificationChannel @default(BOTH)
+  sentCount   Int                 @default(0)
+  failedCount Int                 @default(0)
+  createdAt   DateTime            @default(now())
+
+  @@map("notification_campaigns")
+}
