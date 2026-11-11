@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Category, Prisma } from "@prisma/client";
 import { z } from "zod";
+import { getAdminSession } from "@/lib/auth";
 
 // ==========================================
 // 1. ZOD SCHEMAS FOR VALIDATION (POST)
@@ -35,6 +36,11 @@ const productSchema = z.object({
 // 2. POST ROUTE: CREATE A NEW PRODUCT
 // ==========================================
 export async function POST(request: Request) {
+  const session = await getAdminSession();
+if (!session) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
+  
   try {
     const body = await request.json();
     
@@ -90,6 +96,11 @@ export async function POST(request: Request) {
 // 3. GET ROUTE: FETCH, FILTER, & PAGINATE
 // ==========================================
 export async function GET(request: Request) {
+const session = await getAdminSession();
+if (!session) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
+
   const { searchParams } = new URL(request.url);
   
   // Extract URL parameters

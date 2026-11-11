@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { getAdminSession } from "@/lib/auth";
 
 const addImageSchema = z.object({
   s3Url: z.string().url("Valid S3 URL is required"),
@@ -13,6 +14,11 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
   try {
     const { id: productId } = await params;
     const body = await request.json();

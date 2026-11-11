@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { z } from "zod";
+import { getAdminSession } from "@/lib/auth";
 
 const verifyPaymentSchema = z.object({
   orderId: z.string().min(1),
@@ -12,6 +13,11 @@ const verifyPaymentSchema = z.object({
 
 // POST /api/payments/verify
 export async function POST(request: Request) {
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
   try {
     const body = await request.json();
     const result = verifyPaymentSchema.safeParse(body);

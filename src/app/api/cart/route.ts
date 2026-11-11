@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { getAdminSession } from "@/lib/auth";
 
 const addToCartSchema = z.object({
   sessionId: z.string().min(1),
@@ -47,6 +48,11 @@ export async function GET(request: Request) {
 
 // POST /api/cart
 export async function POST(request: Request) {
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const result = addToCartSchema.safeParse(body);
@@ -92,6 +98,11 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Cart item ID required" }, { status: 400 });
   }
 
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     await prisma.cartItem.delete({ where: { id } });
     return NextResponse.json({ message: "Item removed from cart" });
@@ -108,6 +119,11 @@ const updateCartSchema = z.object({
 
 // PATCH /api/cart - Update item quantity
 export async function PATCH(request: Request) {
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const result = updateCartSchema.safeParse(body);

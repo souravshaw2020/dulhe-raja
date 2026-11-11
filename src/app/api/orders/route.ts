@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
+import { getAdminSession } from "@/lib/auth";
 
 const orderItemInputSchema = z.object({
   productId: z.string().min(1),
@@ -152,6 +153,11 @@ export async function GET(request: Request) {
   }
   if (paymentStatusParam && Object.values(PaymentStatus).includes(paymentStatusParam as PaymentStatus)) {
     where.paymentStatus = paymentStatusParam as PaymentStatus;
+  }
+
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {

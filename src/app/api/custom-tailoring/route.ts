@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { getAdminSession } from "@/lib/auth";
 
 const tailoringSchema = z.object({
   customerName: z.string().min(2, "Name is required"),
@@ -19,6 +20,11 @@ const tailoringSchema = z.object({
 
 // POST /api/custom-tailoring
 export async function POST(request: Request) {
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
   try {
     const body = await request.json();
     const result = tailoringSchema.safeParse(body);
