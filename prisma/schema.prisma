@@ -174,16 +174,25 @@ model CustomerSubscriber {
   @@map("customer_subscribers")
 }
 
+enum CampaignType {
+  NEW_CATEGORY_ARRIVALS
+  COLLECTION
+  DISCOUNT_SALE
+}
+
 model NotificationCampaign {
-  id          String              @id @default(cuid())
-  title       String
-  message     String
-  imageUrl    String?
-  targetUrl   String?
-  channel     NotificationChannel @default(BOTH)
-  sentCount   Int                 @default(0)
-  failedCount Int                 @default(0)
-  createdAt   DateTime            @default(now())
+  id              String              @id @default(cuid())
+  campaignType    CampaignType        @default(NEW_CATEGORY_ARRIVALS)
+  category        Category?
+  discountPercent Int?
+  title           String
+  message         String
+  imageUrl        String?
+  targetUrl       String?
+  channel         NotificationChannel @default(BOTH)
+  sentCount       Int                 @default(0)
+  failedCount     Int                 @default(0)
+  createdAt       DateTime            @default(now())
 
   @@map("notification_campaigns")
 }
