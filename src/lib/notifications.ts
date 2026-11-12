@@ -20,7 +20,7 @@ export interface BroadcastParams {
   targetUrl?: string;
 }
 
-function normalizePhone(phone: string): string {
+export function normalizePhone(phone: string): string {
   const cleaned = phone.replace(/[^\d+]/g, "");
   if (cleaned.startsWith("+")) return cleaned;
   return cleaned.length === 10 ? `+91${cleaned}` : `+${cleaned}`;

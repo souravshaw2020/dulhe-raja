@@ -30,7 +30,7 @@ const productSchema = z.object({
   allowsCustomTailoring: z.boolean().default(true),
   variants: z.array(variantSchema).min(1, "At least one variant is required"),
   images: z.array(imageSchema).min(1, "At least one image is required"),
-  });
+});
 
 // ==========================================
 // 2. POST ROUTE: CREATE A NEW PRODUCT
@@ -81,11 +81,6 @@ export async function POST(request: Request) {
       },
     });
 
-    const primaryImage =
-      newProduct.images.find((img) => img.isPrimary)?.s3Url ||
-      newProduct.images[0]?.s3Url;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
     return NextResponse.json(newProduct, { status: 201 });
   } catch (error) {
     console.error("Error creating product:", error);
@@ -100,11 +95,6 @@ export async function POST(request: Request) {
 // 3. GET ROUTE: FETCH, FILTER, & PAGINATE
 // ==========================================
 export async function GET(request: Request) {
-  const session = await getAdminSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { searchParams } = new URL(request.url);
 
   // Extract URL parameters
@@ -147,21 +137,25 @@ export async function GET(request: Request) {
   // Apply Price Filters
   if (minPriceParam || maxPriceParam) {
     whereClause.basePrice = {};
-    if (minPriceParam) whereClause.basePrice.gte = parseFloat(minPriceParam);
-    if (maxPriceParam) whereClause.basePrice.lte = parseFloat(maxPriceParam);
+    if (minPriceParam && !Number.isNaN(parseFloat(minPriceParam))) {
+      whereClause.basePrice.gte = parseFloat(minPriceParam);
+    }
+    if (maxPriceParam && !Number.isNaN(parseFloat(maxPriceParam))) {
+      whereClause.basePrice.lte = parseFloat(maxPriceParam);
+    }
   }
 
   // Apply Relational Filters (Size, Color, Stock)
-  const andConditions: Prisma.ProductWhereInput[] = [];
-  if (sizeParam)
-    andConditions.push({ variants: { some: { size: sizeParam } } });
-  if (colorParam)
-    andConditions.push({ variants: { some: { color: colorParam } } });
-  if (inStockOnly)
-    andConditions.push({ variants: { some: { stock: { gt: 0 } } } });
-
-  if (andConditions.length > 0) {
-    whereClause.AND = andConditions;
+  if (sizeParam || colorParam || inStockOnly) {
+    whereClause.variants = {
+      some: {
+        ...(sizeParam && { size: { equals: sizeParam, mode: "insensitive" } }),
+        ...(colorParam && {
+          color: { equals: colorParam, mode: "insensitive" },
+        }),
+        ...(inStockOnly && { stock: { gt: 0 } }),
+      },
+    };
   }
 
   // Apply Sorting Logic
@@ -170,31 +164,31 @@ export async function GET(request: Request) {
   };
   if (sortParam === "price_asc") orderByClause = { basePrice: "asc" };
   else if (sortParam === "price_desc") orderByClause = { basePrice: "desc" };
-  else if (sortParam === "newest") orderByClause = { createdAt: "desc" };
+  else if (sortParam === "oldest") orderByClause = { createdAt: "asc" };
 
   try {
-    // Execute the count and fetch concurrently
-    const [totalProducts, products] = await Promise.all([
-      prisma.product.count({ where: whereClause }),
+    const [products, totalCount] = await Promise.all([
       prisma.product.findMany({
         where: whereClause,
+        orderBy: orderByClause,
         skip,
         take: safeLimit,
-        include: {
-          images: { where: { isPrimary: true }, take: 1 },
-          variants: { select: { size: true, color: true, stock: true } },
-        },
-        orderBy: orderByClause,
+        include: { variants: true, images: true },
       }),
+      prisma.product.count({ where: whereClause }),
     ]);
+
+    const totalPages = Math.ceil(totalCount / safeLimit);
 
     return NextResponse.json({
       data: products,
-      metadata: {
-        total: totalProducts,
+      pagination: {
+        total: totalCount,
         page: safePage,
         limit: safeLimit,
-        totalPages: Math.ceil(totalProducts / safeLimit),
+        totalPages,
+        hasNextPage: safePage < totalPages,
+        hasPrevPage: safePage > 1,
       },
     });
   } catch (error) {
