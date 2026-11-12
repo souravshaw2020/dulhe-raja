@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/auth";
 import { z } from "zod";
+import { normalizePhone } from "@/lib/notifications";
 
 const subscribeSchema = z.object({
   name: z.string().min(1).optional(),
@@ -19,25 +20,23 @@ export async function POST(request: Request) {
     if (!result.success) {
       return NextResponse.json(
         { error: "Invalid subscriber data", details: result.error.format() },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const { name, phone, whatsappOptIn, smsOptIn } = result.data;
 
+    const normalizedPhone = normalizePhone(phone);
     const subscriber = await prisma.customerSubscriber.upsert({
-      where: { phone },
+      where: { phone: normalizedPhone },
       update: { name, whatsappOptIn, smsOptIn, isActive: true },
-      create: { name, phone, whatsappOptIn, smsOptIn },
+      create: { name, phone: normalizedPhone, whatsappOptIn, smsOptIn },
     });
 
     return NextResponse.json(subscriber, { status: 201 });
   } catch (error: unknown) {
     console.error("Error saving subscriber:", error);
-    return NextResponse.json(
-      { error: "Failed to subscribe" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to subscribe" }, { status: 500 });
   }
 }
 
@@ -57,7 +56,30 @@ export async function GET() {
     console.error("Error fetching subscribers:", error);
     return NextResponse.json(
       { error: "Failed to fetch subscribers" },
-      { status: 500 }
+      { status: 500 },
     );
+  }
+}
+
+// DELETE /api/subscribers?phone=9876543210 (Public opt-out)
+export async function DELETE(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const phone = searchParams.get("phone");
+
+  if (!phone) {
+    return NextResponse.json({ error: "Phone number required" }, { status: 400 });
+  }
+
+  try {
+    const normalizedPhone = normalizePhone(phone);
+    await prisma.customerSubscriber.update({
+      where: { phone: normalizedPhone },
+      data: { isActive: false, whatsappOptIn: false, smsOptIn: false },
+    });
+
+    return NextResponse.json({ message: "Unsubscribed successfully" });
+  } catch (error) {
+    console.error("Error unsubscribing:", error);
+    return NextResponse.json({ error: "Subscriber not found" }, { status: 404 });
   }
 }
