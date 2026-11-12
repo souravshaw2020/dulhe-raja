@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { Category, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { getAdminSession } from "@/lib/auth";
-import { broadcastToCustomers } from "@/lib/notifications";
 
 // ==========================================
 // 1. ZOD SCHEMAS FOR VALIDATION (POST)
@@ -31,8 +30,7 @@ const productSchema = z.object({
   allowsCustomTailoring: z.boolean().default(true),
   variants: z.array(variantSchema).min(1, "At least one variant is required"),
   images: z.array(imageSchema).min(1, "At least one image is required"),
-  notifyCustomers: z.boolean().default(true),
-});
+  });
 
 // ==========================================
 // 2. POST ROUTE: CREATE A NEW PRODUCT
@@ -87,18 +85,6 @@ export async function POST(request: Request) {
       newProduct.images.find((img) => img.isPrimary)?.s3Url ||
       newProduct.images[0]?.s3Url;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-    if (validatedData.notifyCustomers) {
-      await broadcastToCustomers({
-        title: `New Arrival: ${newProduct.name}`,
-        message: `Explore our latest ${newProduct.fabricType} ${newProduct.category.toLowerCase()} starting at ₹${newProduct.basePrice}.`,
-        imageUrl: primaryImage,
-        targetUrl: `${appUrl}/products/${newProduct.id}`,
-        channel: "BOTH",
-      });
-    }
-
-    return NextResponse.json(newProduct, { status: 201 });
 
     return NextResponse.json(newProduct, { status: 201 });
   } catch (error) {
