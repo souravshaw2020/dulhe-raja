@@ -14,7 +14,7 @@ export function signSessionToken(email: string): string {
   const payload: SessionPayload = {
     email,
     role: "ADMIN",
-    exp: Date.now() + 1000 * 60 * 60 * 24 * 7, // 7 days
+    exp: Date.now() + 1000 * 60 * 60 * 24 * 7,
   };
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = crypto
@@ -35,13 +35,19 @@ export function verifySessionToken(token: string): SessionPayload | null {
     .update(encoded)
     .digest("base64url");
 
-  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+  const sigBuf = Buffer.from(signature);
+  const expectedBuf = Buffer.from(expectedSig);
+
+  if (
+    sigBuf.length !== expectedBuf.length ||
+    !crypto.timingSafeEqual(sigBuf, expectedBuf)
+  ) {
     return null;
   }
 
   try {
     const payload = JSON.parse(
-      Buffer.from(encoded, "base64url").toString("utf8")
+      Buffer.from(encoded, "base64url").toString("utf8"),
     ) as SessionPayload;
     if (payload.exp < Date.now()) return null;
     return payload;
