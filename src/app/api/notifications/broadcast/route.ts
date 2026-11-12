@@ -94,6 +94,7 @@ export async function GET() {
   try {
     const campaigns = await prisma.notificationCampaign.findMany({
       orderBy: { createdAt: "desc" },
+      take: 50,
     });
     return NextResponse.json(campaigns);
   } catch (error: unknown) {
