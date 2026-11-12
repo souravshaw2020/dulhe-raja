@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { getAdminSession } from "@/lib/auth";
 
 const createPaymentSchema = z.object({
   orderId: z.string().min(1, "Order ID is required"),
@@ -10,11 +9,6 @@ const createPaymentSchema = z.object({
 
 // POST /api/payments/create
 export async function POST(request: Request) {
-  const session = await getAdminSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
     const body = await request.json();
     const result = createPaymentSchema.safeParse(body);
