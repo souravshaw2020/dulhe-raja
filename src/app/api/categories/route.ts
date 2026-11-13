@@ -1,15 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Category } from "@prisma/client";
-import { getAdminSession } from "@/lib/auth";
 
 // GET /api/categories
 export async function GET() {
-  const session = await getAdminSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  
   try {
     const [fabricTypes, variants, priceBounds] = await Promise.all([
       prisma.product.findMany({
