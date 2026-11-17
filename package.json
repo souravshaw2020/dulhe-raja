@@ -7,10 +7,10 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npx prisma generate --config prisma7.config.ts && next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma skills sync || exit 0"
+    "postinstall": "npx prisma generate --config prisma7.config.ts || exit 0"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1157.0",
