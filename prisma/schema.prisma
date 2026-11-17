@@ -30,38 +30,38 @@ enum PaymentStatus {
 }
 
 model Product {
-  id                    String            @id @default(cuid())
+  id                    String   @id @default(cuid())
   name                  String
   description           String?
   category              Category
   fabricType            String
-  basePrice             Decimal           @db.Decimal(10, 2)
-  allowsCustomTailoring Boolean           @default(true)
+  basePrice             Decimal  @db.Decimal(10, 2)
+  allowsCustomTailoring Boolean  @default(true)
 
-  images                ProductImage[]
-  variants              ProductVariant[]
-  orderItems            OrderItem[]
-  cartItems             CartItem[]
+  images     ProductImage[]
+  variants   ProductVariant[]
+  orderItems OrderItem[]
+  cartItems  CartItem[]
 
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("products")
 }
 
 model ProductVariant {
-  id              String      @id @default(cuid())
-  productId       String
-  product         Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   color           String
   size            String
-  sku             String      @unique
-  stock           Int         @default(0)
-  priceAdjustment Decimal?    @db.Decimal(10, 2)
+  sku             String   @unique
+  stock           Int      @default(0)
+  priceAdjustment Decimal? @db.Decimal(10, 2)
 
-  orderItems      OrderItem[]
-  cartItems       CartItem[]
+  orderItems OrderItem[]
+  cartItems  CartItem[]
 
   @@map("product_variants")
 }
@@ -79,78 +79,78 @@ model ProductImage {
 }
 
 model CustomTailoringProfile {
-  id              String      @id @default(cuid())
-  customerName    String
-  customerPhone   String
-  customerEmail   String?
-  
-  // Measurements in inches
-  chest           Decimal     @db.Decimal(5, 2)
-  waist           Decimal     @db.Decimal(5, 2)
-  shoulderWidth   Decimal     @db.Decimal(5, 2)
-  armLength       Decimal     @db.Decimal(5, 2)
-  kurtaLength     Decimal?    @db.Decimal(5, 2)
-  neck            Decimal?    @db.Decimal(5, 2)
-  hip             Decimal?    @db.Decimal(5, 2)
-  fittingType     String      @default("REGULAR") // SLIM, REGULAR, COMFORT
-  notes           String?
+  id            String  @id @default(cuid())
+  customerName  String
+  customerPhone String
+  customerEmail String?
 
-  orderItems      OrderItem[]
-  createdAt       DateTime    @default(now())
+  // Measurements in inches
+  chest         Decimal  @db.Decimal(5, 2)
+  waist         Decimal  @db.Decimal(5, 2)
+  shoulderWidth Decimal  @db.Decimal(5, 2)
+  armLength     Decimal  @db.Decimal(5, 2)
+  kurtaLength   Decimal? @db.Decimal(5, 2)
+  neck          Decimal? @db.Decimal(5, 2)
+  hip           Decimal? @db.Decimal(5, 2)
+  fittingType   String   @default("REGULAR") // SLIM, REGULAR, COMFORT
+  notes         String?
+
+  orderItems OrderItem[]
+  createdAt  DateTime    @default(now())
 
   @@map("custom_tailoring_profiles")
 }
 
 model CartItem {
-  id         String          @id @default(cuid())
-  sessionId  String // Guest session ID or User ID
-  productId  String
-  product    Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variantId  String?
-  variant    ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
-  quantity   Int             @default(1)
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
+  id        String          @id @default(cuid())
+  sessionId String // Guest session ID or User ID
+  productId String
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  quantity  Int             @default(1)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   @@map("cart_items")
 }
 
 model Order {
-  id            String         @id @default(cuid())
-  orderNumber   String         @unique
-  customerName  String
-  customerEmail String
-  customerPhone String
+  id              String @id @default(cuid())
+  orderNumber     String @unique
+  customerName    String
+  customerEmail   String
+  customerPhone   String
   shippingAddress String
-  city          String
-  postalCode    String
-  
-  totalAmount   Decimal        @db.Decimal(10, 2)
-  status        OrderStatus    @default(PENDING)
-  paymentStatus PaymentStatus  @default(PENDING)
-  
-  items         OrderItem[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  city            String
+  postalCode      String
+
+  totalAmount   Decimal       @db.Decimal(10, 2)
+  status        OrderStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+
+  items     OrderItem[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
   @@map("orders")
 }
 
 model OrderItem {
-  id                    String                  @id @default(cuid())
-  orderId               String
-  order                 Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  
-  productId             String
-  product               Product                 @relation(fields: [productId], references: [id], onDelete: Restrict)
-  variantId             String?
-  variant               ProductVariant?         @relation(fields: [variantId], references: [id], onDelete: SetNull)
-  
-  tailoringProfileId    String?
-  tailoringProfile      CustomTailoringProfile? @relation(fields: [tailoringProfileId], references: [id], onDelete: SetNull)
-  
-  quantity              Int
-  unitPrice             Decimal                 @db.Decimal(10, 2)
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  tailoringProfileId String?
+  tailoringProfile   CustomTailoringProfile? @relation(fields: [tailoringProfileId], references: [id], onDelete: SetNull)
+
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
 
   @@map("order_items")
 }

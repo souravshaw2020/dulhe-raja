@@ -1,0 +1,223 @@
+.wrapper {
+  padding: 40px clamp(18px, 5vw, 72px) 72px;
+}
+
+.breadcrumb {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #7b665b;
+  margin-bottom: 24px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 44px;
+  align-items: start;
+}
+
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mainImageWrap {
+  position: relative;
+  aspect-ratio: 0.8;
+  background: #e4d4c2;
+  overflow: hidden;
+}
+
+.mainImg {
+  object-fit: cover;
+}
+
+.thumbs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.thumbBtn {
+  position: relative;
+  width: 72px;
+  height: 90px;
+  border: 2px solid transparent;
+  padding: 0;
+  overflow: hidden;
+  background: #e4d4c2;
+}
+
+.thumbActive {
+  border-color: var(--site-primary);
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--site-primary);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.title {
+  font: 400 clamp(28px, 3.6vw, 42px) / 1.12 var(--site-font-heading);
+  margin: 0;
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.price {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--site-primary);
+}
+
+.stock {
+  font-size: 12px;
+  color: #5f4b40;
+}
+
+.desc {
+  font-size: 14px;
+  line-height: 1.75;
+  color: #5f4b40;
+}
+
+.label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #5f4b40;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.variantGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.variantBtn {
+  padding: 9px 14px;
+  border: 1px solid #d9c8b7;
+  background: #ffffff;
+  font-size: 12px;
+}
+
+.variantActive {
+  border-color: var(--site-primary);
+  background: var(--site-primary);
+  color: #ffffff;
+}
+
+.qtyRow {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.qtyInput {
+  width: 72px;
+  padding: 12px 10px;
+  border: 1px solid #d9c8b7;
+  background: #ffffff;
+  text-align: center;
+}
+
+.addBtn {
+  flex: 1;
+  background: var(--site-primary);
+  color: #ffffff;
+  border: 1px solid var(--site-primary);
+  padding: 14px 22px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.addBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tailoringBox {
+  margin-top: 8px;
+  padding: 20px;
+  background: #f4eadf;
+  border: 1px solid #e7daca;
+}
+
+.tailoringToggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--site-primary);
+  text-align: left;
+}
+
+.tailoringForm {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.tailoringForm input,
+.tailoringForm select,
+.tailoringForm textarea {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #d9c8b7;
+  background: #ffffff;
+  font-size: 12px;
+}
+
+.fullSpan {
+  grid-column: 1 / -1;
+}
+
+.saveTailorBtn {
+  grid-column: 1 / -1;
+  background: #261b19;
+  color: #ffffff;
+  border: 0;
+  padding: 11px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.feedback {
+  font-size: 12px;
+  color: var(--site-primary);
+  margin-top: 6px;
+}
+
+@media (max-width: 820px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .tailoringForm {
+    grid-template-columns: 1fr;
+  }
+}

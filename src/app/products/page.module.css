@@ -1,0 +1,263 @@
+.wrapper {
+  padding: 40px clamp(18px, 5vw, 72px) 72px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e7daca;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--site-primary);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.title {
+  font: 400 clamp(30px, 4vw, 44px) / 1.1 var(--site-font-heading);
+  margin: 8px 0 0;
+}
+
+.controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.searchInput,
+.select {
+  padding: 10px 12px;
+  border: 1px solid #d9c8b7;
+  background: #ffffff;
+  color: var(--site-on-background);
+  font-size: 12px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.sidebar {
+  background: #f4eadf;
+  padding: 20px;
+  border: 1px solid #e7daca;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.filterGroup h3 {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--site-primary);
+  margin: 0 0 10px;
+}
+
+.pillList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill {
+  padding: 6px 11px;
+  border: 1px solid #d9c8b7;
+  background: transparent;
+  color: #5f4b40;
+  font-size: 11px;
+}
+
+.pillActive {
+  background: var(--site-primary);
+  border-color: var(--site-primary);
+  color: #ffffff;
+}
+
+.priceInputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.priceInputs input {
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid #d9c8b7;
+  background: #ffffff;
+  font-size: 12px;
+}
+
+.checkLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #5f4b40;
+}
+
+.resetBtn {
+  border: 1px solid var(--site-primary);
+  background: transparent;
+  color: var(--site-primary);
+  padding: 9px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.card {
+  min-width: 0;
+}
+
+.imageWrap {
+  aspect-ratio: 0.78;
+  position: relative;
+  overflow: hidden;
+  background: #e4d4c2;
+}
+
+.img {
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.card:hover .img {
+  transform: scale(1.04);
+}
+
+.tag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  background: #fbf6ee;
+  color: var(--site-primary);
+  padding: 5px 8px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.quickAdd {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 2;
+  background: rgba(251, 246, 238, 0.95);
+  border: 0;
+  padding: 11px;
+  color: var(--site-primary);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  transform: translateY(60px);
+  transition: transform 0.2s;
+}
+
+.card:hover .quickAdd {
+  transform: translateY(0);
+}
+
+.info {
+  padding: 12px 2px;
+  display: block;
+}
+
+.info h3 {
+  font: 18px var(--site-font-heading);
+  margin: 0 0 6px;
+}
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.price {
+  color: var(--site-primary);
+  font-weight: 700;
+}
+
+.fabric {
+  color: #8b7668;
+  font-size: 11px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  margin-top: 36px;
+  font-size: 12px;
+}
+
+.pageBtn {
+  border: 1px solid #d9c8b7;
+  background: #ffffff;
+  padding: 8px 14px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pageBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.toast {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translate(-50%, 120px);
+  background: #261b19;
+  color: #ffffff;
+  padding: 14px 20px;
+  z-index: 50;
+  font-size: 12px;
+  transition: transform 0.25s;
+}
+
+.toastShow {
+  transform: translate(-50%, 0);
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .quickAdd {
+    transform: none;
+  }
+}
