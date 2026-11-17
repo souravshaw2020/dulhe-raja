@@ -1,0 +1,157 @@
+.wrapper {
+  padding: 44px clamp(18px, 5vw, 72px) 72px;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--site-primary);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.title {
+  font: 400 clamp(28px, 4vw, 42px) / 1.1 var(--site-font-heading);
+  margin: 8px 0 28px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  gap: 16px;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #e7daca;
+  align-items: center;
+}
+
+.thumb {
+  position: relative;
+  width: 90px;
+  height: 112px;
+  background: #e4d4c2;
+  overflow: hidden;
+}
+
+.itemName {
+  font: 18px var(--site-font-heading);
+  margin: 0 0 4px;
+}
+
+.itemMeta {
+  font-size: 12px;
+  color: #7b665b;
+  margin-bottom: 8px;
+}
+
+.tailorBadge {
+  display: inline-block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: #f4eadf;
+  color: var(--site-primary);
+  padding: 4px 8px;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.qtyBox {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d9c8b7;
+}
+
+.qtyBox button {
+  border: 0;
+  background: transparent;
+  padding: 6px 11px;
+  font-size: 14px;
+}
+
+.qtyBox span {
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.removeBtn {
+  border: 0;
+  background: transparent;
+  color: #8b7668;
+  font-size: 11px;
+  text-decoration: underline;
+}
+
+.summary {
+  background: #f4eadf;
+  border: 1px solid #e7daca;
+  padding: 24px;
+}
+
+.summary h2 {
+  font: 400 22px var(--site-font-heading);
+  margin: 0 0 16px;
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e2d4c4;
+}
+
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--site-primary);
+  padding: 14px 0 20px;
+}
+
+.checkoutBtn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: var(--site-primary);
+  color: #ffffff;
+  padding: 14px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+@media (max-width: 780px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .item {
+    grid-template-columns: 72px 1fr;
+  }
+  .controls {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}

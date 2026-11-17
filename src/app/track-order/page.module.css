@@ -1,0 +1,77 @@
+.wrapper {
+  padding: 44px clamp(18px, 5vw, 72px) 72px;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--site-primary);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.title {
+  font: 400 clamp(28px, 4vw, 42px) / 1.1 var(--site-font-heading);
+  margin: 8px 0 24px;
+}
+
+.searchForm {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.searchForm input {
+  flex: 1;
+  padding: 12px 14px;
+  border: 1px solid #d9c8b7;
+  background: #ffffff;
+  font-size: 13px;
+}
+
+.searchForm button {
+  background: var(--site-primary);
+  color: #ffffff;
+  border: 0;
+  padding: 0 22px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #e7daca;
+  padding: 24px;
+}
+
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e7daca;
+  margin-bottom: 18px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 5px 10px;
+  background: #f4eadf;
+  color: var(--site-primary);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.itemRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #f2ebe1;
+  font-size: 13px;
+}

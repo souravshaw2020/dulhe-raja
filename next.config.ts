@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    agentUpgrade: "security",
+  },
   turbopack: {
     root: process.cwd(),
   },
