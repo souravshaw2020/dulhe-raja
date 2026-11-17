@@ -1,0 +1,89 @@
+.box {
+  background-color: var(--bg-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 2.25rem;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 2rem;
+  align-items: center;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-burgundy);
+  margin-bottom: 0.5rem;
+}
+
+.desc {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.input {
+  flex: 1;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  font-size: 0.9rem;
+}
+
+.checks {
+  display: flex;
+  gap: 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.checks label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.button {
+  padding: 0.7rem 1.25rem;
+  background-color: var(--accent-burgundy);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status {
+  font-size: 0.85rem;
+  color: var(--success);
+}
+
+.error {
+  font-size: 0.85rem;
+  color: var(--danger);
+}
+
+@media (max-width: 768px) {
+  .box {
+    grid-template-columns: 1fr;
+  }
+  .row {
+    flex-direction: column;
+  }
+}

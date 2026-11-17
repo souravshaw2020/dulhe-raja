@@ -1,0 +1,139 @@
+.announcement {
+  background: var(--site-primary);
+  color: var(--site-on-primary);
+  text-align: center;
+  padding: 10px 16px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px clamp(18px, 5vw, 72px);
+  border-bottom: 1px solid #e7daca;
+  gap: 24px;
+  background: var(--site-background);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 190px;
+}
+
+.brandMark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--site-secondary);
+  color: var(--site-primary);
+  border-radius: 50%;
+  font-family: var(--site-font-heading);
+  font-size: 20px;
+}
+
+.brandName {
+  display: block;
+  font-family: var(--site-font-heading);
+  color: var(--site-primary);
+  font-size: 25px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.brandSub {
+  display: block;
+  font-size: 9px;
+  font-family: var(--site-font-body);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-top: 5px;
+  color: #7b6559;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 28px);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+}
+
+.nav a:hover {
+  color: var(--site-primary);
+}
+
+.headerActions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.iconBtn {
+  border: 1px solid #e3d4c4;
+  background: transparent;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--site-primary);
+  position: relative;
+}
+
+.cartCount {
+  position: absolute;
+  right: -3px;
+  top: -4px;
+  background: var(--site-secondary);
+  color: #241b18;
+  font-size: 10px;
+  font-weight: 600;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.adminLink {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: #7b6559;
+}
+
+.adminLink:hover {
+  color: var(--site-primary);
+}
+
+@media (max-width: 900px) {
+  .nav {
+    gap: 14px;
+    font-size: 10px;
+  }
+  .brand {
+    min-width: unset;
+  }
+}
+
+@media (max-width: 720px) {
+  .header {
+    padding: 15px 18px;
+  }
+  .nav {
+    display: none;
+  }
+  .brandName {
+    font-size: 22px;
+  }
+}

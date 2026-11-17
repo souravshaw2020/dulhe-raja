@@ -1,0 +1,886 @@
+openapi: 3.0.3
+info:
+  title: Dulhe Raja E-Commerce & Custom Tailoring API
+  version: 1.0.0
+  description: |
+    Complete backend API specification for **Dulhe Raja (Shree Shyam Creation)** — ethnic groomwear e-commerce, custom tailoring, Razorpay checkout, AWS S3 media uploads, Twilio WhatsApp/SMS broadcasts, and bulk CSV import/export.
+
+    ### Environment Variables (`.env`)
+    ```env
+    DATABASE_URL="postgresql://user:password@host:5432/dulhe_raja"
+    NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+    # Admin Authentication
+    ADMIN_EMAIL="admin@dulheraja.com"
+    ADMIN_PASSWORD="strong_password"
+    AUTH_SECRET="64_char_random_hex_string"
+
+    # AWS S3 Media Storage
+    AWS_REGION="ap-south-1"
+    AWS_ACCESS_KEY_ID="your_aws_access_key"
+    AWS_SECRET_ACCESS_KEY="your_aws_secret_key"
+    AWS_S3_BUCKET_NAME="your_s3_bucket"
+
+    # Razorpay Payment Gateway
+    RAZORPAY_KEY_ID="rzp_test_xxxxxxxx"
+    RAZORPAY_KEY_SECRET="xxxxxxxxxxxxxxxx"
+
+    # Twilio WhatsApp & SMS
+    TWILIO_ACCOUNT_SID="ACxxxxxxxxxxxxxxxx"
+    TWILIO_AUTH_TOKEN="xxxxxxxxxxxxxxxx"
+    TWILIO_SMS_FROM="+1xxxxxxxxxx"
+    TWILIO_WHATSAPP_FROM="whatsapp:+14155238886"
+    ```
+
+    ### Authentication
+    Admin endpoints use an HTTP-only signed session cookie named `dulhe_raja_admin_session`, issued by `POST /api/auth/login`.
+servers:
+  - url: http://localhost:3000
+    description: Local Development Server
+tags:
+  - name: Health
+  - name: Auth
+  - name: Products
+  - name: Variants
+  - name: Images & Upload
+  - name: Categories
+  - name: Cart
+  - name: Custom Tailoring
+  - name: Orders
+  - name: Payments
+  - name: Subscribers & Notifications
+  - name: CSV Export & Import
+components:
+  securitySchemes:
+    AdminCookieAuth:
+      type: apiKey
+      in: cookie
+      name: dulhe_raja_admin_session
+  schemas:
+    Category:
+      type: string
+      enum: [SHERWANI, KURTA, PYJAMA, INDO_WESTERN]
+    OrderStatus:
+      type: string
+      enum: [PENDING, CONFIRMED, IN_TAILORING, SHIPPED, DELIVERED, CANCELLED]
+    PaymentStatus:
+      type: string
+      enum: [PENDING, PAID, FAILED, REFUNDED]
+    NotificationChannel:
+      type: string
+      enum: [WHATSAPP, SMS, BOTH]
+    CampaignType:
+      type: string
+      enum: [NEW_CATEGORY_ARRIVALS, COLLECTION, DISCOUNT_SALE]
+    FittingType:
+      type: string
+      enum: [SLIM, REGULAR, COMFORT]
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Database and server health check
+      responses:
+        "200":
+          description: Server and PostgreSQL connection healthy
+        "500":
+          description: Database disconnected
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Admin login (sets HTTP-only session cookie)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Authenticated successfully; sets dulhe_raja_admin_session cookie
+        "400":
+          description: Invalid credentials format
+        "401":
+          description: Invalid email or password
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Admin logout (clears session cookie)
+      responses:
+        "200":
+          description: Logged out
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Check current admin session
+      security:
+        - AdminCookieAuth: []
+      responses:
+        "200":
+          description: Returns authenticated admin email and role
+        "401":
+          description: Unauthorized
+
+  /api/products:
+    get:
+      tags: [Products]
+      summary: List products with search, filters, sorting, and pagination
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Search product name or description
+        - name: category
+          in: query
+          schema: { $ref: "#/components/schemas/Category" }
+        - name: minPrice
+          in: query
+          schema: { type: number }
+        - name: maxPrice
+          in: query
+          schema: { type: number }
+        - name: size
+          in: query
+          schema: { type: string }
+        - name: color
+          in: query
+          schema: { type: string }
+        - name: inStock
+          in: query
+          schema: { type: boolean }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [price_asc, price_desc, oldest, newest]
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10, maximum: 100 }
+      responses:
+        "200":
+          description: Paginated list of products with variants and images
+        "400":
+          description: Invalid category filter
+    post:
+      tags: [Products]
+      summary: Create a new product with variants and images
+      security:
+        - AdminCookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, category, fabricType, basePrice, variants, images]
+              properties:
+                name: { type: string, minLength: 3 }
+                description: { type: string }
+                category: { $ref: "#/components/schemas/Category" }
+                fabricType: { type: string }
+                basePrice: { type: number, minimum: 0.01 }
+                allowsCustomTailoring: { type: boolean, default: true }
+                variants:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [color, size, sku]
+                    properties:
+                      color: { type: string }
+                      size: { type: string }
+                      sku: { type: string, minLength: 3 }
+                      stock: { type: integer, minimum: 0, default: 0 }
+                      priceAdjustment: { type: number }
+                images:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [s3Url]
+                    properties:
+                      s3Url: { type: string, format: uri }
+                      altText: { type: string }
+                      isPrimary: { type: boolean, default: false }
+      responses:
+        "201":
+          description: Product created
+        "400":
+          description: Validation error
+        "401":
+          description: Unauthorized
+
+  /api/products/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Products]
+      summary: Get single product details with all images and variants
+      responses:
+        "200":
+          description: Product details
+        "404":
+          description: Product not found
+    patch:
+      tags: [Products]
+      summary: Update product fields
+      security:
+        - AdminCookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 3 }
+                description: { type: string }
+                category: { $ref: "#/components/schemas/Category" }
+                fabricType: { type: string }
+                basePrice: { type: number }
+                allowsCustomTailoring: { type: boolean }
+      responses:
+        "200":
+          description: Product updated
+        "401":
+          description: Unauthorized
+    delete:
+      tags: [Products]
+      summary: Delete product
+      security:
+        - AdminCookieAuth: []
+      responses:
+        "200":
+          description: Product deleted
+        "401":
+          description: Unauthorized
+
+  /api/products/{id}/variants:
+    post:
+      tags: [Variants]
+      summary: Add a new variant to an existing product
+      security:
+        - AdminCookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [color, size, sku]
+              properties:
+                color: { type: string }
+                size: { type: string }
+                sku: { type: string, minLength: 3 }
+                stock: { type: integer, minimum: 0, default: 0 }
+                priceAdjustment: { type: number, nullable: true }
+      responses:
+        "201":
+          description: Variant created
+        "401":
+          description: Unauthorized
+        "409":
+          description: SKU already exists
+
+  /api/variants/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      tags: [Variants]
+      summary: Update variant stock, price adjustment, size, or color
+      security:
+        - AdminCookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stock: { type: integer, minimum: 0 }
+                priceAdjustment: { type: number, nullable: true }
+                color: { type: string }
+                size: { type: string }
+      responses:
+        "200":
+          description: Variant updated
+        "401":
+          description: Unauthorized
+    delete:
+      tags: [Variants]
+      summary: Delete variant
+      security:
+        - AdminCookieAuth: []
+      responses:
+        "200":
+          description: Variant deleted
+        "401":
+          description: Unauthorized
+
+  /api/upload:
+    post:
+      tags: [Images & Upload]
+      summary: Generate AWS S3 presigned upload URL
+      security:
+        - AdminCookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [filename, contentType]
+              properties:
+                filename: { type: string }
+                contentType:
+                  type: string
+                  enum: [image/jpeg, image/png, image/webp, image/avif]
+      responses:
+        "200":
+          description: Returns signedUrl and public fileUrl
+        "400":
+          description: Invalid filename or contentType
+        "401":
+          description: Unauthorized
+
+  /api/products/{id}/images:
+    post:
+      tags: [Images & Upload]
+      summary: Associate an uploaded S3 image with a product
+      security:
+        - AdminCookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [s3Url]
+              properties:
+                s3Url: { type: string, format: uri }
+                altText: { type: string }
+                isPrimary: { type: boolean, default: false }
+      responses:
+        "201":
+          description: Image associated with product
+        "401":
+          description: Unauthorized
+
+  /api/images/{id}:
+    delete:
+      tags: [Images & Upload]
+      summary: Delete a product image
+      security:
+        - AdminCookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Image deleted
+        "401":
+          description: Unauthorized
+
+  /api/categories:
+    get:
+      tags: [Categories]
+      summary: Get available categories, fabrics, sizes, colors, and price bounds
+      responses:
+        "200":
+          description: Storefront filter metadata
+
+  /api/cart:
+    get:
+      tags: [Cart]
+      summary: Get shopping cart items and calculated subtotal
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Cart items and subtotal
+        "400":
+          description: Session ID required
+    post:
+      tags: [Cart]
+      summary: Add item/variant to cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, productId]
+              properties:
+                sessionId: { type: string }
+                productId: { type: string }
+                variantId: { type: string }
+                quantity: { type: integer, minimum: 1, default: 1 }
+      responses:
+        "201":
+          description: Item added to cart
+    patch:
+      tags: [Cart]
+      summary: Update cart item quantity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, sessionId, quantity]
+              properties:
+                id: { type: string }
+                sessionId: { type: string }
+                quantity: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Quantity updated
+        "404":
+          description: Cart item not found
+    delete:
+      tags: [Cart]
+      summary: Remove item from cart
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: sessionId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Item removed
+        "404":
+          description: Cart item not found
+
+  /api/custom-tailoring:
+    post:
+      tags: [Custom Tailoring]
+      summary: Submit groom body measurements for custom tailoring
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                [customerName, customerPhone, chest, waist, shoulderWidth, armLength]
+              properties:
+                customerName: { type: string, minLength: 2 }
+                customerPhone: { type: string, minLength: 10 }
+                customerEmail: { type: string, format: email }
+                chest: { type: number }
+                waist: { type: number }
+                shoulderWidth: { type: number }
+                armLength: { type: number }
+                kurtaLength: { type: number }
+                neck: { type: number }
+                hip: { type: number }
+                fittingType: { $ref: "#/components/schemas/FittingType" }
+                notes: { type: string }
+      responses:
+        "201":
+          description: Tailoring profile created
+
+  /api/custom-tailoring/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Custom Tailoring]
+      summary: Get custom tailoring profile by ID
+      security:
+        - AdminCookieAuth: []
+      responses:
+        "200":
+          description: Tailoring profile
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+    patch:
+      tags: [Custom Tailoring]
+      summary: Update custom tailoring measurements
+      security:
+        - AdminCookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                customerName: { type: string }
+                customerPhone: { type: string }
+                customerEmail: { type: string, format: email, nullable: true }
+                chest: { type: number }
+                waist: { type: number }
+                shoulderWidth: { type: number }
+                armLength: { type: number }
+                kurtaLength: { type: number, nullable: true }
+                neck: { type: number, nullable: true }
+                hip: { type: number, nullable: true }
+                fittingType: { $ref: "#/components/schemas/FittingType" }
+                notes: { type: string, nullable: true }
+      responses:
+        "200":
+          description: Updated tailoring profile
+        "401":
+          description: Unauthorized
+    delete:
+      tags: [Custom Tailoring]
+      summary: Delete custom tailoring profile
+      security:
+        - AdminCookieAuth: []
+      responses:
+        "200":
+          description: Deleted
+        "401":
+          description: Unauthorized
+
+  /api/orders:
+    post:
+      tags: [Orders]
+      summary: Place a new order (validates & decrements stock atomically, clears cart, subscribes customer)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                [customerName, customerEmail, customerPhone, shippingAddress, city, postalCode, items]
+              properties:
+                customerName: { type: string, minLength: 2 }
+                customerEmail: { type: string, format: email }
+                customerPhone: { type: string, minLength: 10 }
+                shippingAddress: { type: string, minLength: 5 }
+                city: { type: string, minLength: 2 }
+                postalCode: { type: string, minLength: 4 }
+                sessionId: { type: string }
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [productId, quantity]
+                    properties:
+                      productId: { type: string }
+                      variantId: { type: string }
+                      tailoringProfileId: { type: string }
+                      quantity: { type: integer, minimum: 1 }
+      responses:
+        "201":
+          description: Order created
+        "404":
+          description: Product not found
+        "409":
+          description: Insufficient stock
+    get:
+      tags: [Orders]
+      summary: List and filter orders (admin auth required when listing all orders without email/phone)
+      parameters:
+        - name: email
+          in: query
+          schema: { type: string, format: email }
+        - name: phone
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/OrderStatus" }
+        - name: paymentStatus
+          in: query
+          schema: { $ref: "#/components/schemas/PaymentStatus" }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10, maximum: 100 }
+      responses:
+        "200":
+          description: Paginated orders list
+        "401":
+          description: Unauthorized (when querying without email/phone)
+
+  /api/orders/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        description: Order CUID or orderNumber (e.g., DR-123456-789)
+    get:
+      tags: [Orders]
+      summary: Track an order by ID or orderNumber
+      responses:
+        "200":
+          description: Order details
+        "404":
+          description: Order not found
+    patch:
+      tags: [Orders]
+      summary: Update order status or payment status (restores variant stock on CANCELLED)
+      security:
+        - AdminCookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { $ref: "#/components/schemas/OrderStatus" }
+                paymentStatus: { $ref: "#/components/schemas/PaymentStatus" }
+      responses:
+        "200":
+          description: Order updated
+        "401":
+          description: Unauthorized
+        "404":
+          description: Order not found
+
+  /api/payments/create:
+    post:
+      tags: [Payments]
+      summary: Create a Razorpay order for checkout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId]
+              properties:
+                orderId: { type: string }
+      responses:
+        "200":
+          description: Returns razorpayOrderId, amount (paise), currency (INR), and keyId
+        "400":
+          description: Order already paid or invalid input
+        "404":
+          description: Order not found
+
+  /api/payments/verify:
+    post:
+      tags: [Payments]
+      summary: Verify Razorpay HMAC SHA256 signature and mark order PAID & CONFIRMED
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature]
+              properties:
+                orderId: { type: string }
+                razorpayOrderId: { type: string }
+                razorpayPaymentId: { type: string }
+                razorpaySignature: { type: string }
+      responses:
+        "200":
+          description: Payment verified
+        "400":
+          description: Invalid payment signature (marks paymentStatus FAILED)
+
+  /api/subscribers:
+    post:
+      tags: [Subscribers & Notifications]
+      summary: Subscribe a customer to WhatsApp/SMS alerts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                name: { type: string }
+                phone: { type: string, minLength: 10 }
+                whatsappOptIn: { type: boolean, default: true }
+                smsOptIn: { type: boolean, default: true }
+      responses:
+        "201":
+          description: Subscribed
+    get:
+      tags: [Subscribers & Notifications]
+      summary: List all customer subscribers
+      security:
+        - AdminCookieAuth: []
+      responses:
+        "200":
+          description: List of subscribers
+        "401":
+          description: Unauthorized
+    delete:
+      tags: [Subscribers & Notifications]
+      summary: Unsubscribe a customer by phone number
+      parameters:
+        - name: phone
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Unsubscribed
+        "404":
+          description: Subscriber not found
+
+  /api/notifications/broadcast:
+    post:
+      tags: [Subscribers & Notifications]
+      summary: Broadcast New Category Arrivals, Collections, or Discounted Sales via WhatsApp/SMS
+      security:
+        - AdminCookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [campaignType]
+              properties:
+                campaignType: { $ref: "#/components/schemas/CampaignType" }
+                channel: { $ref: "#/components/schemas/NotificationChannel" }
+                category: { $ref: "#/components/schemas/Category" }
+                daysBack: { type: integer, minimum: 1, maximum: 90, default: 7 }
+                discountPercent: { type: integer, minimum: 1, maximum: 95 }
+                productIds:
+                  type: array
+                  items: { type: string }
+                title: { type: string, minLength: 2 }
+                message: { type: string, minLength: 5 }
+                imageUrl: { type: string, format: uri }
+                targetUrl: { type: string, format: uri }
+      responses:
+        "201":
+          description: Campaign broadcast sent
+        "401":
+          description: Unauthorized
+        "404":
+          description: No recent products found for NEW_CATEGORY_ARRIVALS
+    get:
+      tags: [Subscribers & Notifications]
+      summary: List past notification campaigns
+      security:
+        - AdminCookieAuth: []
+      responses:
+        "200":
+          description: List of up to 50 recent campaigns
+        "401":
+          description: Unauthorized
+
+  /api/export/{table}:
+    get:
+      tags: [CSV Export & Import]
+      summary: Export any database table as a downloadable CSV sheet
+      security:
+        - AdminCookieAuth: []
+      parameters:
+        - name: table
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              [products, variants, images, orders, order-items, tailoring, subscribers, campaigns, cart]
+      responses:
+        "200":
+          description: Downloadable UTF-8 CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+        "400":
+          description: Invalid table name
+        "401":
+          description: Unauthorized
+
+  /api/import/{table}:
+    post:
+      tags: [CSV Export & Import]
+      summary: Bulk import records from a CSV file or CSV text
+      security:
+        - AdminCookieAuth: []
+      parameters:
+        - name: table
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [products, variants, subscribers, tailoring]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+          application/json:
+            schema:
+              type: object
+              required: [csv]
+              properties:
+                csv:
+                  type: string
+          text/csv:
+            schema:
+              type: string
+      responses:
+        "200":
+          description: Import summary (totalRows, imported, updated, skipped, errors)
+        "400":
+          description: Invalid CSV or all rows failed validation
+        "401":
+          description: Unauthorized
