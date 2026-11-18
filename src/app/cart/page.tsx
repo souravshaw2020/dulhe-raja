@@ -28,21 +28,33 @@ export default function CartPage() {
   const [subtotal, setSubtotal] = useState(0);
   const [tailoringMap, setTailoringMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const loadCart = async () => {
     const sessionId = getCartSessionId();
-    if (!sessionId) return;
+    if (!sessionId) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch(
         `/api/cart?sessionId=${encodeURIComponent(sessionId)}`,
       );
-      if (!res.ok) return;
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: string };
+        setErrorMsg(err.error || "Failed to load your bag.");
+        return;
+      }
       const data = (await res.json()) as {
         items: CartItemRow[];
         subtotal: number;
       };
       setItems(data.items || []);
       setSubtotal(data.subtotal || 0);
+      setErrorMsg(null);
+    } catch {
+      setErrorMsg("Network error loading your bag.");
     } finally {
       setLoading(false);
     }
@@ -50,38 +62,74 @@ export default function CartPage() {
 
   useEffect(() => {
     loadCart();
-    const rawMap = localStorage.getItem("dulhe_raja_tailoring_map");
-    if (rawMap) {
-      setTailoringMap(JSON.parse(rawMap) as Record<string, string>);
+    try {
+      const rawMap = localStorage.getItem("dulhe_raja_tailoring_map");
+      if (rawMap) {
+        setTailoringMap(JSON.parse(rawMap) as Record<string, string>);
+      }
+    } catch {
+      localStorage.removeItem("dulhe_raja_tailoring_map");
     }
   }, []);
 
   const updateQuantity = async (id: string, nextQty: number) => {
     if (nextQty < 1) return;
+    setErrorMsg(null);
     const sessionId = getCartSessionId();
-    await fetch("/api/cart", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, sessionId, quantity: nextQty }),
-    });
-    window.dispatchEvent(new Event("cart-updated"));
-    loadCart();
+
+    try {
+      const res = await fetch("/api/cart", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, sessionId, quantity: nextQty }),
+      });
+
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: string };
+        setErrorMsg(err.error || "Could not update item quantity.");
+        return;
+      }
+
+      window.dispatchEvent(new Event("cart-updated"));
+      await loadCart();
+    } catch {
+      setErrorMsg("Network error updating item quantity.");
+    }
   };
 
   const removeItem = async (id: string) => {
+    setErrorMsg(null);
     const sessionId = getCartSessionId();
-    await fetch(
-      `/api/cart?id=${encodeURIComponent(id)}&sessionId=${encodeURIComponent(sessionId)}`,
-      { method: "DELETE" },
-    );
-    window.dispatchEvent(new Event("cart-updated"));
-    loadCart();
+
+    try {
+      const res = await fetch(
+        `/api/cart?id=${encodeURIComponent(id)}&sessionId=${encodeURIComponent(sessionId)}`,
+        { method: "DELETE" },
+      );
+
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: string };
+        setErrorMsg(err.error || "Could not remove item from bag.");
+        return;
+      }
+
+      window.dispatchEvent(new Event("cart-updated"));
+      await loadCart();
+    } catch {
+      setErrorMsg("Network error removing item.");
+    }
   };
 
   return (
     <main className={styles.wrapper}>
       <div className={styles.eyebrow}>Your Selection</div>
       <h1 className={styles.title}>Shopping Bag</h1>
+
+      {errorMsg && (
+        <p style={{ color: "#b42318", fontSize: "13px", marginBottom: "16px" }}>
+          {errorMsg}
+        </p>
+      )}
 
       {loading ? (
         <p style={{ color: "#7b665b" }}>Loading your bag...</p>

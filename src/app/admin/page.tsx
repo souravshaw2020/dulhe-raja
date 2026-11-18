@@ -215,67 +215,98 @@ export default function AdminPage() {
     e.preventDefault();
     setStatusMsg(null);
 
-    const res = await fetch("/api/products", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: newProd.name,
-        description: newProd.description || undefined,
-        category: newProd.category,
-        fabricType: newProd.fabricType,
-        basePrice: Number(newProd.basePrice),
-        allowsCustomTailoring: true,
-        variants: [
-          {
-            color: newProd.color,
-            size: newProd.size,
-            sku: newProd.sku,
-            stock: Number(newProd.stock) || 0,
-          },
-        ],
-        images: [{ s3Url: newProd.s3Url, isPrimary: true }],
-      }),
-    });
-
-    const data = (await res.json()) as { error?: string };
-    if (!res.ok) {
-      setStatusMsg(data.error || "Failed to create product.");
+    if (!newProd.s3Url.trim().startsWith("http")) {
+      setStatusMsg(
+        "Please upload an image or enter a valid https:// image URL.",
+      );
       return;
     }
 
-    setStatusMsg("Product created.");
-    setNewProd({
-      name: "",
-      description: "",
-      category: "SHERWANI",
-      fabricType: "",
-      basePrice: "",
-      color: "Ivory",
-      size: "40",
-      sku: "",
-      stock: "5",
-      s3Url: "",
-    });
-    loadAdminData();
+    try {
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newProd.name.trim(),
+          description: newProd.description.trim() || undefined,
+          category: newProd.category,
+          fabricType: newProd.fabricType.trim(),
+          basePrice: Number(newProd.basePrice),
+          allowsCustomTailoring: true,
+          variants: [
+            {
+              color: newProd.color.trim(),
+              size: newProd.size.trim(),
+              sku: newProd.sku.trim(),
+              stock: Number(newProd.stock) || 0,
+            },
+          ],
+          images: [{ s3Url: newProd.s3Url.trim(), isPrimary: true }],
+        }),
+      });
+
+      const data = (await res.json()) as { error?: string; details?: unknown };
+      if (!res.ok) {
+        setStatusMsg(
+          data.details
+            ? `${data.error}: ${JSON.stringify(data.details)}`
+            : data.error || "Failed to create product.",
+        );
+        return;
+      }
+
+      setStatusMsg("Product created.");
+      setNewProd({
+        name: "",
+        description: "",
+        category: "SHERWANI",
+        fabricType: "",
+        basePrice: "",
+        color: "Ivory",
+        size: "40",
+        sku: "",
+        stock: "5",
+        s3Url: "",
+      });
+      await loadAdminData();
+    } catch {
+      setStatusMsg("Network error creating product.");
+    }
   };
 
   const handleDeleteProduct = async (id: string) => {
-    const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
-    if (res.ok) {
+    setStatusMsg(null);
+    try {
+      const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        setStatusMsg(data.error || "Failed to delete product.");
+        return;
+      }
       setStatusMsg("Product deleted.");
-      loadAdminData();
+      await loadAdminData();
+    } catch {
+      setStatusMsg("Network error deleting product.");
     }
   };
 
   const handleUpdateStock = async (variantId: string, stock: number) => {
-    const res = await fetch(`/api/variants/${variantId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stock: Math.max(0, stock) }),
-    });
-    if (res.ok) {
+    setStatusMsg(null);
+    try {
+      const res = await fetch(`/api/variants/${variantId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stock: Math.max(0, stock) }),
+      });
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        setStatusMsg(data.error || "Failed to update variant stock.");
+        return;
+      }
       setStatusMsg("Variant stock updated.");
-      loadAdminData();
+      await loadAdminData();
+    } catch {
+      setStatusMsg("Network error updating stock.");
     }
   };
 
@@ -283,14 +314,22 @@ export default function AdminPage() {
     orderId: string,
     patch: { status?: string; paymentStatus?: string },
   ) => {
-    const res = await fetch(`/api/orders/${orderId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    });
-    if (res.ok) {
+    setStatusMsg(null);
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        setStatusMsg(data.error || "Failed to update order.");
+        return;
+      }
       setStatusMsg("Order updated.");
-      loadAdminData();
+      await loadAdminData();
+    } catch {
+      setStatusMsg("Network error updating order.");
     }
   };
 
@@ -307,35 +346,47 @@ export default function AdminPage() {
       payload.category = broadcast.category;
       payload.daysBack = Number(broadcast.daysBack) || 7;
     } else {
-      payload.title = broadcast.title;
-      payload.message = broadcast.message;
-      if (broadcast.imageUrl) payload.imageUrl = broadcast.imageUrl;
-      if (broadcast.targetUrl) payload.targetUrl = broadcast.targetUrl;
+      payload.title = broadcast.title.trim();
+      payload.message = broadcast.message.trim();
+      if (broadcast.imageUrl.trim())
+        payload.imageUrl = broadcast.imageUrl.trim();
+      if (broadcast.targetUrl.trim())
+        payload.targetUrl = broadcast.targetUrl.trim();
       if (broadcast.campaignType === "DISCOUNT_SALE") {
         payload.discountPercent = Number(broadcast.discountPercent) || 10;
       }
     }
 
-    const res = await fetch("/api/notifications/broadcast", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    try {
+      const res = await fetch("/api/notifications/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    const data = (await res.json()) as {
-      sentCount?: number;
-      failedCount?: number;
-      error?: string;
-    };
-    if (!res.ok) {
-      setStatusMsg(data.error || "Broadcast failed.");
-      return;
+      const data = (await res.json()) as {
+        sentCount?: number;
+        failedCount?: number;
+        error?: string;
+        details?: unknown;
+      };
+
+      if (!res.ok) {
+        setStatusMsg(
+          data.details
+            ? `${data.error}: ${JSON.stringify(data.details)}`
+            : data.error || "Broadcast failed.",
+        );
+        return;
+      }
+
+      setStatusMsg(
+        `Broadcast sent: ${data.sentCount ?? 0} delivered, ${data.failedCount ?? 0} failed.`,
+      );
+      await loadAdminData();
+    } catch {
+      setStatusMsg("Network error sending broadcast.");
     }
-
-    setStatusMsg(
-      `Broadcast sent: ${data.sentCount ?? 0} delivered, ${data.failedCount ?? 0} failed.`,
-    );
-    loadAdminData();
   };
 
   const handleCsvImport = async (e: FormEvent) => {
@@ -346,26 +397,31 @@ export default function AdminPage() {
     const formData = new FormData();
     formData.append("file", importFile);
 
-    const res = await fetch(`/api/import/${importTable}`, {
-      method: "POST",
-      body: formData,
-    });
-    const data = (await res.json()) as {
-      imported?: number;
-      updated?: number;
-      skipped?: number;
-      error?: string;
-    };
+    try {
+      const res = await fetch(`/api/import/${importTable}`, {
+        method: "POST",
+        body: formData,
+      });
 
-    if (!res.ok) {
-      setImportResult(data.error || "CSV import failed.");
-      return;
+      const data = (await res.json()) as {
+        imported?: number;
+        updated?: number;
+        skipped?: number;
+        error?: string;
+      };
+
+      if (!res.ok) {
+        setImportResult(data.error || "CSV import failed.");
+        return;
+      }
+
+      setImportResult(
+        `Done: ${data.imported ?? 0} imported, ${data.updated ?? 0} updated, ${data.skipped ?? 0} skipped.`,
+      );
+      await loadAdminData();
+    } catch {
+      setImportResult("Network error importing CSV.");
     }
-
-    setImportResult(
-      `Done: ${data.imported ?? 0} imported, ${data.updated ?? 0} updated, ${data.skipped ?? 0} skipped.`,
-    );
-    loadAdminData();
   };
 
   if (!authChecked) {

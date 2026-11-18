@@ -108,10 +108,12 @@ export async function GET(request: Request) {
   const inStockOnly = searchParams.get("inStock") === "true";
 
   // Pagination setup
-  const page = parseInt(searchParams.get("page") || "1", 10);
-  const limit = parseInt(searchParams.get("limit") || "10", 10);
-  const safePage = Math.max(1, page);
-  const safeLimit = Math.max(1, Math.min(100, limit));
+  const parsedPage = parseInt(searchParams.get("page") || "1", 10);
+  const parsedLimit = parseInt(searchParams.get("limit") || "10", 10);
+  const safePage = Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
+  const safeLimit = Number.isNaN(parsedLimit)
+    ? 10
+    : Math.max(1, Math.min(100, parsedLimit));
   const skip = (safePage - 1) * safeLimit;
 
   // Initialize the dynamic WHERE clause

@@ -56,6 +56,9 @@ export default function CheckoutPage() {
           setItems(data.items || []);
           setSubtotal(data.subtotal || 0);
         }
+      })
+      .catch(() => {
+        setError("Failed to load cart summary.");
       });
   }, []);
 
@@ -66,12 +69,18 @@ export default function CheckoutPage() {
     setSubmitting(true);
     setError(null);
     const sessionId = getCartSessionId();
-    const rawTailor = localStorage.getItem("dulhe_raja_tailoring_map");
-    const tailoringMap = rawTailor
-      ? (JSON.parse(rawTailor) as Record<string, string>)
-      : {};
 
     try {
+      let tailoringMap: Record<string, string> = {};
+      try {
+        const rawTailor = localStorage.getItem("dulhe_raja_tailoring_map");
+        if (rawTailor) {
+          tailoringMap = JSON.parse(rawTailor) as Record<string, string>;
+        }
+      } catch {
+        localStorage.removeItem("dulhe_raja_tailoring_map");
+      }
+
       // 1. Create Order in DB
       const orderRes = await fetch("/api/orders", {
         method: "POST",
@@ -119,7 +128,6 @@ export default function CheckoutPage() {
       };
 
       if (!payRes.ok || !payData.razorpayOrderId || !window.Razorpay) {
-        // Order created, redirect to tracking page even if gateway isn't configured in dev
         router.push(
           `/track-order?orderNumber=${encodeURIComponent(orderData.orderNumber)}`,
         );
@@ -140,24 +148,44 @@ export default function CheckoutPage() {
           contact: form.customerPhone,
         },
         handler: async (response: RazorpayResponse) => {
-          await fetch("/api/payments/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              orderId: orderData.id,
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
-            }),
-          });
-          router.push(
-            `/track-order?orderNumber=${encodeURIComponent(orderData.orderNumber!)}`,
-          );
+          try {
+            const verifyRes = await fetch("/api/payments/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                orderId: orderData.id,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              }),
+            });
+
+            if (!verifyRes.ok) {
+              setError(
+                `Payment verification failed for order ${orderData.orderNumber}.`,
+              );
+              setSubmitting(false);
+              return;
+            }
+
+            router.push(
+              `/track-order?orderNumber=${encodeURIComponent(
+                orderData.orderNumber!,
+              )}`,
+            );
+          } catch {
+            setError(
+              `Network error verifying payment for order ${orderData.orderNumber}.`,
+            );
+            setSubmitting(false);
+          }
         },
         modal: {
           ondismiss: () => {
             router.push(
-              `/track-order?orderNumber=${encodeURIComponent(orderData.orderNumber!)}`,
+              `/track-order?orderNumber=${encodeURIComponent(
+                orderData.orderNumber!,
+              )}`,
             );
           },
         },
