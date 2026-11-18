@@ -7,18 +7,41 @@ import styles from "./page.module.css";
 
 type AdminTab = "products" | "orders" | "broadcasts" | "csv";
 
+interface VariantDraft {
+  color: string;
+  size: string;
+  sku: string;
+  stock: string;
+  priceAdjustment: string;
+}
+
+interface ImageDraft {
+  s3Url: string;
+  altText: string;
+  isPrimary: boolean;
+}
+
 interface ProductRow {
   id: string;
   name: string;
+  description: string | null;
   category: string;
   fabricType: string;
   basePrice: string | number;
+  allowsCustomTailoring: boolean;
   variants: {
     id: string;
     color: string;
     size: string;
     sku: string;
     stock: number;
+    priceAdjustment: string | number | null;
+  }[];
+  images: {
+    id: string;
+    s3Url: string;
+    altText: string | null;
+    isPrimary: boolean;
   }[];
 }
 
@@ -65,6 +88,17 @@ const EXPORT_TABLES = [
   "cart",
 ];
 
+const CSV_REQUIRED_HEADERS: Record<string, string> = {
+  products:
+    "Required columns: name*, category* (SHERWANI | KURTA | PYJAMA | INDO_WESTERN), fabricType*, basePrice* (> 0). Optional: description, allowsCustomTailoring, color, size, sku, stock, s3Url",
+  variants:
+    "Required columns: productId*, color*, size*, sku* (min 3 chars), stock* (>= 0). Optional: priceAdjustment",
+  subscribers:
+    "Required columns: phone* (min 10 digits). Optional: name, whatsappOptIn (true/false), smsOptIn (true/false), isActive (true/false)",
+  tailoring:
+    "Required columns: customerName*, customerPhone*, chest*, waist*, shoulderWidth*, armLength*. Optional: customerEmail, kurtaLength, neck, hip, fittingType (SLIM | REGULAR | COMFORT), notes",
+};
+
 export default function AdminPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
@@ -80,20 +114,44 @@ export default function AdminPage() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [subscriberCount, setSubscriberCount] = useState(0);
 
-  // Product creation state
+  // Create Product states
   const [newProd, setNewProd] = useState({
+    name: "",
+    description: "",
+    category: "SHERWANI",
+    fabricType: "Velvet",
+    basePrice: "",
+    allowsCustomTailoring: true,
+  });
+
+  const [variants, setVariants] = useState<VariantDraft[]>([
+    {
+      color: "Maroon & Gold",
+      size: "M",
+      sku: "SHR-VEL-MAR-M",
+      stock: "2",
+      priceAdjustment: "",
+    },
+  ]);
+
+  const [images, setImages] = useState<ImageDraft[]>([
+    { s3Url: "", altText: "", isPrimary: true },
+  ]);
+
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null);
+  const [prodErrors, setProdErrors] = useState<Record<string, string>>({});
+
+  // Edit Existing Product state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editProd, setEditProd] = useState({
     name: "",
     description: "",
     category: "SHERWANI",
     fabricType: "",
     basePrice: "",
-    color: "Ivory",
-    size: "40",
-    sku: "",
-    stock: "5",
-    s3Url: "",
+    allowsCustomTailoring: true,
   });
-  const [uploadingImg, setUploadingImg] = useState(false);
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
 
   // Broadcast state
   const [broadcast, setBroadcast] = useState({
@@ -107,6 +165,9 @@ export default function AdminPage() {
     imageUrl: "",
     targetUrl: "",
   });
+  const [broadcastErrors, setBroadcastErrors] = useState<
+    Record<string, string>
+  >({});
 
   // CSV Import state
   const [importTable, setImportTable] = useState("products");
@@ -114,27 +175,31 @@ export default function AdminPage() {
   const [importResult, setImportResult] = useState<string | null>(null);
 
   const loadAdminData = async () => {
-    const [prodRes, ordRes, campRes, subRes] = await Promise.all([
-      fetch("/api/products?limit=50"),
-      fetch("/api/orders?limit=50"),
-      fetch("/api/notifications/broadcast"),
-      fetch("/api/subscribers"),
-    ]);
+    try {
+      const [prodRes, ordRes, campRes, subRes] = await Promise.all([
+        fetch("/api/products?limit=50"),
+        fetch("/api/orders?limit=50"),
+        fetch("/api/notifications/broadcast"),
+        fetch("/api/subscribers"),
+      ]);
 
-    if (prodRes.ok) {
-      const pJson = (await prodRes.json()) as { data: ProductRow[] };
-      setProducts(pJson.data || []);
-    }
-    if (ordRes.ok) {
-      const oJson = (await ordRes.json()) as { orders: OrderRow[] };
-      setOrders(oJson.orders || []);
-    }
-    if (campRes.ok) {
-      setCampaigns((await campRes.json()) as CampaignRow[]);
-    }
-    if (subRes.ok) {
-      const subs = (await subRes.json()) as unknown[];
-      setSubscriberCount(subs.length);
+      if (prodRes.ok) {
+        const pJson = (await prodRes.json()) as { data: ProductRow[] };
+        setProducts(pJson.data || []);
+      }
+      if (ordRes.ok) {
+        const oJson = (await ordRes.json()) as { orders: OrderRow[] };
+        setOrders(oJson.orders || []);
+      }
+      if (campRes.ok) {
+        setCampaigns((await campRes.json()) as CampaignRow[]);
+      }
+      if (subRes.ok) {
+        const subs = (await subRes.json()) as unknown[];
+        setSubscriberCount(subs.length);
+      }
+    } catch {
+      setStatusMsg("Failed to refresh dashboard data.");
     }
   };
 
@@ -146,23 +211,32 @@ export default function AdminPage() {
           loadAdminData();
         }
       })
+      .catch(() => undefined)
       .finally(() => setAuthChecked(true));
   }, []);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setLoginError(null);
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(loginForm),
-    });
-    if (!res.ok) {
-      setLoginError("Invalid email or password.");
+    if (!loginForm.email.trim() || !loginForm.password.trim()) {
+      setLoginError("Both email and password are required.");
       return;
     }
-    setAuthenticated(true);
-    loadAdminData();
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(loginForm),
+      });
+      if (!res.ok) {
+        setLoginError("Invalid email or password.");
+        return;
+      }
+      setAuthenticated(true);
+      await loadAdminData();
+    } catch {
+      setLoginError("Network error signing in.");
+    }
   };
 
   const handleLogout = async () => {
@@ -170,11 +244,67 @@ export default function AdminPage() {
     setAuthenticated(false);
   };
 
-  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+  const addVariantRow = () => {
+    setVariants((prev) => [
+      ...prev,
+      {
+        color: prev[0]?.color || "",
+        size: "L",
+        sku: "",
+        stock: "1",
+        priceAdjustment: "",
+      },
+    ]);
+  };
+
+  const removeVariantRow = (idx: number) => {
+    if (variants.length <= 1) return;
+    setVariants((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateVariantRow = (
+    idx: number,
+    field: keyof VariantDraft,
+    value: string,
+  ) => {
+    setVariants((prev) =>
+      prev.map((row, i) => (i === idx ? { ...row, [field]: value } : row)),
+    );
+  };
+
+  const addImageRow = () => {
+    setImages((prev) => [
+      ...prev,
+      { s3Url: "", altText: "", isPrimary: false },
+    ]);
+  };
+
+  const removeImageRow = (idx: number) => {
+    if (images.length <= 1) return;
+    setImages((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      if (!next.some((img) => img.isPrimary) && next[0]) {
+        next[0].isPrimary = true;
+      }
+      return next;
+    });
+  };
+
+  const setPrimaryImageRow = (idx: number) => {
+    setImages((prev) =>
+      prev.map((img, i) => ({ ...img, isPrimary: i === idx })),
+    );
+  };
+
+  const handleImageUploadForRow = async (
+    idx: number,
+    e: ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setUploadingImg(true);
+    setUploadingIdx(idx);
     setStatusMsg(null);
+
     try {
       const signRes = await fetch("/api/upload", {
         method: "POST",
@@ -202,25 +332,96 @@ export default function AdminPage() {
         return;
       }
 
-      setNewProd((prev) => ({ ...prev, s3Url: signData.fileUrl! }));
-      setStatusMsg("Image uploaded to S3.");
+      setImages((prev) =>
+        prev.map((img, i) =>
+          i === idx ? { ...img, s3Url: signData.fileUrl! } : img,
+        ),
+      );
+      setStatusMsg(`Image #${idx + 1} uploaded to S3.`);
     } catch {
       setStatusMsg("Error uploading image.");
     } finally {
-      setUploadingImg(false);
+      setUploadingIdx(null);
     }
+  };
+
+  const validateNewProduct = (): boolean => {
+    const errs: Record<string, string> = {};
+
+    if (newProd.name.trim().length < 3) {
+      errs.name = "Product name must be at least 3 characters.";
+    }
+    if (!newProd.fabricType.trim()) {
+      errs.fabricType = "Fabric type is required.";
+    }
+    const price = Number(newProd.basePrice);
+    if (!newProd.basePrice || Number.isNaN(price) || price <= 0) {
+      errs.basePrice = "Base price must be greater than 0.";
+    }
+
+    const skus = new Set<string>();
+    variants.forEach((v, i) => {
+      if (!v.color.trim()) errs[`variant_color_${i}`] = "Color is required.";
+      if (!v.size.trim()) errs[`variant_size_${i}`] = "Size is required.";
+      if (v.sku.trim().length < 3) {
+        errs[`variant_sku_${i}`] = "SKU must be at least 3 characters.";
+      } else if (skus.has(v.sku.trim())) {
+        errs[`variant_sku_${i}`] = "Duplicate SKU in form.";
+      } else {
+        skus.add(v.sku.trim());
+      }
+      const st = parseInt(v.stock, 10);
+      if (v.stock === "" || Number.isNaN(st) || st < 0) {
+        errs[`variant_stock_${i}`] = "Stock must be 0 or more.";
+      }
+      if (
+        v.priceAdjustment.trim() !== "" &&
+        Number.isNaN(Number(v.priceAdjustment))
+      ) {
+        errs[`variant_adj_${i}`] = "Must be a valid number.";
+      }
+    });
+
+    images.forEach((img, i) => {
+      const url = img.s3Url.trim();
+      if (!url || (!url.startsWith("https://") && !url.startsWith("http://"))) {
+        errs[`image_url_${i}`] =
+          "Valid http:// or https:// image URL is required.";
+      }
+    });
+
+    if (!images.some((img) => img.isPrimary)) {
+      errs.images = "Select one image as Primary.";
+    }
+
+    setProdErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
   const handleCreateProduct = async (e: FormEvent) => {
     e.preventDefault();
     setStatusMsg(null);
 
-    if (!newProd.s3Url.trim().startsWith("http")) {
-      setStatusMsg(
-        "Please upload an image or enter a valid https:// image URL.",
-      );
+    if (!validateNewProduct()) {
+      setStatusMsg("Please fix the highlighted required fields below.");
       return;
     }
+
+    const formattedImages = images.map((img) => ({
+      s3Url: img.s3Url.trim(),
+      altText: img.altText.trim() || undefined,
+      isPrimary: img.isPrimary,
+    }));
+
+    const formattedVariants = variants.map((v) => ({
+      color: v.color.trim(),
+      size: v.size.trim(),
+      sku: v.sku.trim(),
+      stock: Math.max(0, parseInt(v.stock, 10) || 0),
+      ...(v.priceAdjustment.trim() !== ""
+        ? { priceAdjustment: Number(v.priceAdjustment) }
+        : {}),
+    }));
 
     try {
       const res = await fetch("/api/products", {
@@ -232,16 +433,9 @@ export default function AdminPage() {
           category: newProd.category,
           fabricType: newProd.fabricType.trim(),
           basePrice: Number(newProd.basePrice),
-          allowsCustomTailoring: true,
-          variants: [
-            {
-              color: newProd.color.trim(),
-              size: newProd.size.trim(),
-              sku: newProd.sku.trim(),
-              stock: Number(newProd.stock) || 0,
-            },
-          ],
-          images: [{ s3Url: newProd.s3Url.trim(), isPrimary: true }],
+          allowsCustomTailoring: newProd.allowsCustomTailoring,
+          variants: formattedVariants,
+          images: formattedImages,
         }),
       });
 
@@ -255,22 +449,82 @@ export default function AdminPage() {
         return;
       }
 
-      setStatusMsg("Product created.");
+      setProdErrors({});
+      setStatusMsg("Product created with all variants and images.");
       setNewProd({
         name: "",
         description: "",
         category: "SHERWANI",
-        fabricType: "",
+        fabricType: "Velvet",
         basePrice: "",
-        color: "Ivory",
-        size: "40",
-        sku: "",
-        stock: "5",
-        s3Url: "",
+        allowsCustomTailoring: true,
       });
+      setVariants([
+        { color: "", size: "M", sku: "", stock: "1", priceAdjustment: "" },
+      ]);
+      setImages([{ s3Url: "", altText: "", isPrimary: true }]);
       await loadAdminData();
     } catch {
       setStatusMsg("Network error creating product.");
+    }
+  };
+
+  const startEditingProduct = (p: ProductRow) => {
+    setEditingId(p.id);
+    setEditErrors({});
+    setEditProd({
+      name: p.name,
+      description: p.description || "",
+      category: p.category,
+      fabricType: p.fabricType,
+      basePrice: String(p.basePrice),
+      allowsCustomTailoring: p.allowsCustomTailoring,
+    });
+  };
+
+  const handleSaveEditProduct = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!editingId) return;
+    setStatusMsg(null);
+
+    const errs: Record<string, string> = {};
+    if (editProd.name.trim().length < 3) {
+      errs.name = "Product name must be at least 3 characters.";
+    }
+    if (!editProd.fabricType.trim()) {
+      errs.fabricType = "Fabric type is required.";
+    }
+    if (!editProd.basePrice || Number(editProd.basePrice) <= 0) {
+      errs.basePrice = "Base price must be greater than 0.";
+    }
+    setEditErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
+    try {
+      const res = await fetch(`/api/products/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editProd.name.trim(),
+          description: editProd.description.trim(),
+          category: editProd.category,
+          fabricType: editProd.fabricType.trim(),
+          basePrice: Number(editProd.basePrice),
+          allowsCustomTailoring: editProd.allowsCustomTailoring,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        setStatusMsg(data.error || "Failed to update product.");
+        return;
+      }
+
+      setStatusMsg("Product details updated.");
+      setEditingId(null);
+      await loadAdminData();
+    } catch {
+      setStatusMsg("Network error updating product.");
     }
   };
 
@@ -335,6 +589,44 @@ export default function AdminPage() {
 
   const handleSendBroadcast = async (e: FormEvent) => {
     e.preventDefault();
+    setStatusMsg(null);
+
+    const errs: Record<string, string> = {};
+    if (broadcast.campaignType === "NEW_CATEGORY_ARRIVALS") {
+      const days = Number(broadcast.daysBack);
+      if (!days || days < 1 || days > 90) {
+        errs.daysBack = "Days back must be between 1 and 90.";
+      }
+    } else {
+      if (broadcast.title.trim().length < 2) {
+        errs.title = "Campaign title is required (min 2 characters).";
+      }
+      if (broadcast.message.trim().length < 5) {
+        errs.message = "Campaign message is required (min 5 characters).";
+      }
+      if (broadcast.campaignType === "DISCOUNT_SALE") {
+        const disc = Number(broadcast.discountPercent);
+        if (!disc || disc < 1 || disc > 95) {
+          errs.discountPercent = "Discount % is required (1 to 95).";
+        }
+      }
+      if (
+        broadcast.imageUrl.trim() &&
+        !broadcast.imageUrl.trim().startsWith("http")
+      ) {
+        errs.imageUrl = "Must be a valid http:// or https:// URL.";
+      }
+      if (
+        broadcast.targetUrl.trim() &&
+        !broadcast.targetUrl.trim().startsWith("http")
+      ) {
+        errs.targetUrl = "Must be a valid http:// or https:// URL.";
+      }
+    }
+
+    setBroadcastErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
     setStatusMsg("Sending broadcast...");
 
     const payload: Record<string, unknown> = {
@@ -391,7 +683,10 @@ export default function AdminPage() {
 
   const handleCsvImport = async (e: FormEvent) => {
     e.preventDefault();
-    if (!importFile) return;
+    if (!importFile) {
+      setImportResult("Please select a .csv file first.");
+      return;
+    }
     setImportResult("Importing CSV...");
 
     const formData = new FormData();
@@ -431,37 +726,51 @@ export default function AdminPage() {
   if (!authenticated) {
     return (
       <main className={styles.wrapper}>
-        <form className={styles.loginBox} onSubmit={handleLogin}>
+        <form className={styles.loginBox} onSubmit={handleLogin} noValidate>
           <div className={styles.eyebrow}>Dulhe Raja Admin</div>
-          <h1 className={styles.title} style={{ marginBottom: "20px" }}>
+          <h1 className={styles.title} style={{ marginBottom: "8px" }}>
             Sign In
           </h1>
+          <p className={styles.hint} style={{ marginBottom: "18px" }}>
+            Fields marked with <span className={styles.req}>*</span> are
+            required.
+          </p>
           <div
-            style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+            style={{ display: "flex", flexDirection: "column", gap: "14px" }}
           >
-            <input
-              type="email"
-              required
-              placeholder="Admin Email"
-              className={styles.input}
-              value={loginForm.email}
-              onChange={(e) =>
-                setLoginForm({ ...loginForm, email: e.target.value })
-              }
-            />
-            <input
-              type="password"
-              required
-              placeholder="Password"
-              className={styles.input}
-              value={loginForm.password}
-              onChange={(e) =>
-                setLoginForm({ ...loginForm, password: e.target.value })
-              }
-            />
-            {loginError && (
-              <p style={{ color: "#b42318", fontSize: "12px" }}>{loginError}</p>
-            )}
+            <div className={styles.field}>
+              <label className={styles.fieldLabel}>
+                Admin Email<span className={styles.req}>*</span>
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="admin@dulheraja.com"
+                className={styles.input}
+                value={loginForm.email}
+                onChange={(e) =>
+                  setLoginForm({ ...loginForm, email: e.target.value })
+                }
+              />
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.fieldLabel}>
+                Password<span className={styles.req}>*</span>
+              </label>
+              <input
+                type="password"
+                required
+                placeholder="Enter admin password"
+                className={styles.input}
+                value={loginForm.password}
+                onChange={(e) =>
+                  setLoginForm({ ...loginForm, password: e.target.value })
+                }
+              />
+            </div>
+
+            {loginError && <p className={styles.fieldError}>{loginError}</p>}
             <button type="submit" className={styles.btn}>
               Sign In
             </button>
@@ -533,128 +842,624 @@ export default function AdminPage() {
         <>
           <section className={styles.panel}>
             <h2>Add New Product</h2>
-            <form className={styles.formGrid} onSubmit={handleCreateProduct}>
-              <input
-                required
-                placeholder="Product Name"
-                className={styles.input}
-                value={newProd.name}
-                onChange={(e) =>
-                  setNewProd({ ...newProd, name: e.target.value })
-                }
-              />
-              <select
-                className={styles.select}
-                value={newProd.category}
-                onChange={(e) =>
-                  setNewProd({ ...newProd, category: e.target.value })
-                }
-              >
-                <option value="SHERWANI">SHERWANI</option>
-                <option value="KURTA">KURTA</option>
-                <option value="PYJAMA">PYJAMA</option>
-                <option value="INDO_WESTERN">INDO_WESTERN</option>
-              </select>
-              <input
-                required
-                placeholder="Fabric Type (e.g. Raw Silk)"
-                className={styles.input}
-                value={newProd.fabricType}
-                onChange={(e) =>
-                  setNewProd({ ...newProd, fabricType: e.target.value })
-                }
-              />
-              <input
-                required
-                type="number"
-                placeholder="Base Price (INR)"
-                className={styles.input}
-                value={newProd.basePrice}
-                onChange={(e) =>
-                  setNewProd({ ...newProd, basePrice: e.target.value })
-                }
-              />
-              <input
-                required
-                placeholder="Initial Color"
-                className={styles.input}
-                value={newProd.color}
-                onChange={(e) =>
-                  setNewProd({ ...newProd, color: e.target.value })
-                }
-              />
-              <input
-                required
-                placeholder="Initial Size (e.g. 40)"
-                className={styles.input}
-                value={newProd.size}
-                onChange={(e) =>
-                  setNewProd({ ...newProd, size: e.target.value })
-                }
-              />
-              <input
-                required
-                placeholder="Unique SKU"
-                className={styles.input}
-                value={newProd.sku}
-                onChange={(e) =>
-                  setNewProd({ ...newProd, sku: e.target.value })
-                }
-              />
-              <input
-                required
-                type="number"
-                placeholder="Initial Stock"
-                className={styles.input}
-                value={newProd.stock}
-                onChange={(e) =>
-                  setNewProd({ ...newProd, stock: e.target.value })
-                }
-              />
-              <div className={styles.full}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "12px",
-                    marginBottom: "6px",
-                  }}
-                >
-                  Upload Image to S3 (or paste URL below):
+            <p className={styles.hint} style={{ marginBottom: "16px" }}>
+              Fields marked with <span className={styles.req}>*</span> are
+              required. At least 1 variant and 1 primary image are mandatory.
+            </p>
+
+            <form
+              className={styles.formGrid}
+              onSubmit={handleCreateProduct}
+              noValidate
+            >
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>
+                  Product Name<span className={styles.req}>*</span>
                 </label>
                 <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/avif"
-                  onChange={handleImageUpload}
+                  required
+                  minLength={3}
+                  placeholder="e.g. Royal Zardosi Velvet Sherwani"
+                  className={`${styles.input} ${prodErrors.name ? styles.inputError : ""}`}
+                  value={newProd.name}
+                  onChange={(e) =>
+                    setNewProd({ ...newProd, name: e.target.value })
+                  }
                 />
-                {uploadingImg && (
-                  <span style={{ fontSize: "12px", marginLeft: "8px" }}>
-                    Uploading...
+                {prodErrors.name && (
+                  <span className={styles.fieldError}>{prodErrors.name}</span>
+                )}
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>
+                  Category<span className={styles.req}>*</span>
+                </label>
+                <select
+                  className={styles.select}
+                  value={newProd.category}
+                  onChange={(e) =>
+                    setNewProd({ ...newProd, category: e.target.value })
+                  }
+                >
+                  <option value="SHERWANI">SHERWANI</option>
+                  <option value="KURTA">KURTA</option>
+                  <option value="PYJAMA">PYJAMA</option>
+                  <option value="INDO_WESTERN">INDO_WESTERN</option>
+                </select>
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>
+                  Fabric Type<span className={styles.req}>*</span>
+                </label>
+                <input
+                  required
+                  list="fabric-suggestions"
+                  placeholder="e.g. Velvet, Raw Silk"
+                  className={`${styles.input} ${prodErrors.fabricType ? styles.inputError : ""}`}
+                  value={newProd.fabricType}
+                  onChange={(e) =>
+                    setNewProd({ ...newProd, fabricType: e.target.value })
+                  }
+                />
+                {prodErrors.fabricType && (
+                  <span className={styles.fieldError}>
+                    {prodErrors.fabricType}
+                  </span>
+                )}
+                <datalist id="fabric-suggestions">
+                  <option value="Velvet" />
+                  <option value="Raw Silk" />
+                  <option value="Brocade" />
+                  <option value="Jacquard Silk" />
+                  <option value="Cotton Silk" />
+                  <option value="Linen" />
+                </datalist>
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>
+                  Base Price (INR)<span className={styles.req}>*</span>
+                </label>
+                <input
+                  required
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  placeholder="e.g. 18500"
+                  className={`${styles.input} ${prodErrors.basePrice ? styles.inputError : ""}`}
+                  value={newProd.basePrice}
+                  onChange={(e) =>
+                    setNewProd({ ...newProd, basePrice: e.target.value })
+                  }
+                />
+                {prodErrors.basePrice && (
+                  <span className={styles.fieldError}>
+                    {prodErrors.basePrice}
                   </span>
                 )}
               </div>
-              <input
-                required
-                placeholder="Primary Image URL (auto-filled after S3 upload)"
-                className={`${styles.input} ${styles.full}`}
-                value={newProd.s3Url}
-                onChange={(e) =>
-                  setNewProd({ ...newProd, s3Url: e.target.value })
-                }
-              />
-              <textarea
-                rows={2}
-                placeholder="Description (optional)"
-                className={`${styles.textarea} ${styles.full}`}
-                value={newProd.description}
-                onChange={(e) =>
-                  setNewProd({ ...newProd, description: e.target.value })
-                }
-              />
+
+              <div className={styles.full}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={newProd.allowsCustomTailoring}
+                    onChange={(e) =>
+                      setNewProd({
+                        ...newProd,
+                        allowsCustomTailoring: e.target.checked,
+                      })
+                    }
+                  />
+                  Allows Bespoke Custom Tailoring
+                </label>
+              </div>
+
+              {/* Conditional Info Banner for Custom Tailoring */}
+              <div className={styles.infoBox}>
+                {newProd.allowsCustomTailoring ? (
+                  <>
+                    <strong>Custom Tailoring Enabled:</strong> Customers on the
+                    product page will see the bespoke measurement form (Chest*,
+                    Waist*, Shoulder Width*, Arm Length*, plus optional Kurta
+                    Length &amp; Fit Type).
+                  </>
+                ) : (
+                  <>
+                    <strong>Ready-to-Wear Mode:</strong> Custom measurement
+                    inputs will be hidden on the storefront; customers will only
+                    select from the standard size variants below.
+                  </>
+                )}
+              </div>
+
+              <div className={`${styles.field} ${styles.full}`}>
+                <label className={styles.fieldLabel}>
+                  Description (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. Handcrafted maroon velvet sherwani with heavy gold zardosi embroidery..."
+                  className={styles.textarea}
+                  value={newProd.description}
+                  onChange={(e) =>
+                    setNewProd({ ...newProd, description: e.target.value })
+                  }
+                />
+              </div>
+
+              {/* Multi-Variant Builder */}
+              <div
+                className={styles.full}
+                style={{ borderTop: "1px solid #e7daca", paddingTop: "14px" }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "10px",
+                  }}
+                >
+                  <div>
+                    <strong style={{ fontSize: "13px" }}>
+                      Product Variants<span className={styles.req}>*</span>
+                    </strong>
+                    <span className={styles.hint} style={{ display: "block" }}>
+                      Color*, Size*, Unique SKU* (min 3 chars), and Stock*
+                      (&gt;= 0) are required for every row.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addVariantRow}
+                    className={styles.btnOutline}
+                  >
+                    + Add Variant Row
+                  </button>
+                </div>
+
+                {variants.map((v, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1.2fr 0.7fr 1.2fr 0.7fr 1fr auto",
+                      gap: "8px",
+                      marginBottom: "10px",
+                      alignItems: "start",
+                    }}
+                  >
+                    <div className={styles.field}>
+                      <label className={styles.fieldLabel}>
+                        Color<span className={styles.req}>*</span>
+                      </label>
+                      <input
+                        required
+                        placeholder="Maroon & Gold"
+                        className={`${styles.input} ${prodErrors[`variant_color_${idx}`] ? styles.inputError : ""}`}
+                        value={v.color}
+                        onChange={(e) =>
+                          updateVariantRow(idx, "color", e.target.value)
+                        }
+                      />
+                      {prodErrors[`variant_color_${idx}`] && (
+                        <span className={styles.fieldError}>
+                          {prodErrors[`variant_color_${idx}`]}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className={styles.field}>
+                      <label className={styles.fieldLabel}>
+                        Size<span className={styles.req}>*</span>
+                      </label>
+                      <input
+                        required
+                        list="size-suggestions"
+                        placeholder="S/M/L/XL"
+                        className={`${styles.input} ${prodErrors[`variant_size_${idx}`] ? styles.inputError : ""}`}
+                        value={v.size}
+                        onChange={(e) =>
+                          updateVariantRow(idx, "size", e.target.value)
+                        }
+                      />
+                      {prodErrors[`variant_size_${idx}`] && (
+                        <span className={styles.fieldError}>
+                          {prodErrors[`variant_size_${idx}`]}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className={styles.field}>
+                      <label className={styles.fieldLabel}>
+                        SKU<span className={styles.req}>*</span>
+                      </label>
+                      <input
+                        required
+                        minLength={3}
+                        placeholder="SHR-VEL-MAR-M"
+                        className={`${styles.input} ${prodErrors[`variant_sku_${idx}`] ? styles.inputError : ""}`}
+                        value={v.sku}
+                        onChange={(e) =>
+                          updateVariantRow(idx, "sku", e.target.value)
+                        }
+                      />
+                      {prodErrors[`variant_sku_${idx}`] && (
+                        <span className={styles.fieldError}>
+                          {prodErrors[`variant_sku_${idx}`]}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className={styles.field}>
+                      <label className={styles.fieldLabel}>
+                        Stock<span className={styles.req}>*</span>
+                      </label>
+                      <input
+                        required
+                        type="number"
+                        min="0"
+                        placeholder="2"
+                        className={`${styles.input} ${prodErrors[`variant_stock_${idx}`] ? styles.inputError : ""}`}
+                        value={v.stock}
+                        onChange={(e) =>
+                          updateVariantRow(idx, "stock", e.target.value)
+                        }
+                      />
+                      {prodErrors[`variant_stock_${idx}`] && (
+                        <span className={styles.fieldError}>
+                          {prodErrors[`variant_stock_${idx}`]}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className={styles.field}>
+                      <label className={styles.fieldLabel}>
+                        +Price Adj (Opt)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="e.g. 1000"
+                        className={`${styles.input} ${prodErrors[`variant_adj_${idx}`] ? styles.inputError : ""}`}
+                        value={v.priceAdjustment}
+                        onChange={(e) =>
+                          updateVariantRow(
+                            idx,
+                            "priceAdjustment",
+                            e.target.value,
+                          )
+                        }
+                      />
+                      {prodErrors[`variant_adj_${idx}`] && (
+                        <span className={styles.fieldError}>
+                          {prodErrors[`variant_adj_${idx}`]}
+                        </span>
+                      )}
+                    </div>
+
+                    {variants.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeVariantRow(idx)}
+                        className={styles.btnDanger}
+                        style={{ marginTop: "20px" }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <datalist id="size-suggestions">
+                  <option value="S" />
+                  <option value="M" />
+                  <option value="L" />
+                  <option value="XL" />
+                  <option value="XXL" />
+                  <option value="38" />
+                  <option value="40" />
+                  <option value="42" />
+                  <option value="44" />
+                </datalist>
+              </div>
+
+              {/* Multi-Image Builder */}
+              <div
+                className={styles.full}
+                style={{ borderTop: "1px solid #e7daca", paddingTop: "14px" }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "10px",
+                  }}
+                >
+                  <div>
+                    <strong style={{ fontSize: "13px" }}>
+                      Product Images<span className={styles.req}>*</span>
+                    </strong>
+                    <span className={styles.hint} style={{ display: "block" }}>
+                      Upload a JPEG/PNG/WebP/AVIF to S3 or paste a full https://
+                      URL. One image must be marked Primary*.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addImageRow}
+                    className={styles.btnOutline}
+                  >
+                    + Add Image Row
+                  </button>
+                </div>
+
+                {prodErrors.images && (
+                  <p className={styles.fieldError}>{prodErrors.images}</p>
+                )}
+
+                {images.map((img, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1.4fr 1fr auto auto auto",
+                      gap: "8px",
+                      marginBottom: "10px",
+                      alignItems: "start",
+                    }}
+                  >
+                    <div className={styles.field}>
+                      <label className={styles.fieldLabel}>
+                        Image URL<span className={styles.req}>*</span>
+                      </label>
+                      <input
+                        required
+                        type="url"
+                        placeholder="https://..."
+                        className={`${styles.input} ${prodErrors[`image_url_${idx}`] ? styles.inputError : ""}`}
+                        value={img.s3Url}
+                        onChange={(e) =>
+                          setImages((prev) =>
+                            prev.map((row, i) =>
+                              i === idx
+                                ? { ...row, s3Url: e.target.value }
+                                : row,
+                            ),
+                          )
+                        }
+                      />
+                      {prodErrors[`image_url_${idx}`] && (
+                        <span className={styles.fieldError}>
+                          {prodErrors[`image_url_${idx}`]}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className={styles.field}>
+                      <label className={styles.fieldLabel}>
+                        Alt Text (Opt)
+                      </label>
+                      <input
+                        placeholder="e.g. Front view of sherwani"
+                        className={styles.input}
+                        value={img.altText}
+                        onChange={(e) =>
+                          setImages((prev) =>
+                            prev.map((row, i) =>
+                              i === idx
+                                ? { ...row, altText: e.target.value }
+                                : row,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+
+                    <label
+                      style={{
+                        fontSize: "12px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        marginTop: "26px",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="primaryImage"
+                        checked={img.isPrimary}
+                        onChange={() => setPrimaryImageRow(idx)}
+                      />
+                      Primary<span className={styles.req}>*</span>
+                    </label>
+
+                    <label
+                      className={styles.btnOutline}
+                      style={{
+                        cursor: "pointer",
+                        textAlign: "center",
+                        marginTop: "20px",
+                      }}
+                    >
+                      {uploadingIdx === idx ? "Uploading..." : "Upload S3"}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/avif"
+                        style={{ display: "none" }}
+                        onChange={(e) => handleImageUploadForRow(idx, e)}
+                      />
+                    </label>
+
+                    {images.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeImageRow(idx)}
+                        className={styles.btnDanger}
+                        style={{ marginTop: "20px" }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
               <button type="submit" className={`${styles.btn} ${styles.full}`}>
                 Create Product
               </button>
             </form>
           </section>
+
+          {editingId && (
+            <section className={styles.panel}>
+              <h2>Edit Product Details</h2>
+              <form
+                className={styles.formGrid}
+                onSubmit={handleSaveEditProduct}
+                noValidate
+              >
+                <div className={styles.field}>
+                  <label className={styles.fieldLabel}>
+                    Product Name<span className={styles.req}>*</span>
+                  </label>
+                  <input
+                    required
+                    minLength={3}
+                    className={`${styles.input} ${editErrors.name ? styles.inputError : ""}`}
+                    value={editProd.name}
+                    onChange={(e) =>
+                      setEditProd({ ...editProd, name: e.target.value })
+                    }
+                  />
+                  {editErrors.name && (
+                    <span className={styles.fieldError}>{editErrors.name}</span>
+                  )}
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.fieldLabel}>
+                    Category<span className={styles.req}>*</span>
+                  </label>
+                  <select
+                    className={styles.select}
+                    value={editProd.category}
+                    onChange={(e) =>
+                      setEditProd({ ...editProd, category: e.target.value })
+                    }
+                  >
+                    <option value="SHERWANI">SHERWANI</option>
+                    <option value="KURTA">KURTA</option>
+                    <option value="PYJAMA">PYJAMA</option>
+                    <option value="INDO_WESTERN">INDO_WESTERN</option>
+                  </select>
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.fieldLabel}>
+                    Fabric Type<span className={styles.req}>*</span>
+                  </label>
+                  <input
+                    required
+                    className={`${styles.input} ${editErrors.fabricType ? styles.inputError : ""}`}
+                    value={editProd.fabricType}
+                    onChange={(e) =>
+                      setEditProd({ ...editProd, fabricType: e.target.value })
+                    }
+                  />
+                  {editErrors.fabricType && (
+                    <span className={styles.fieldError}>
+                      {editErrors.fabricType}
+                    </span>
+                  )}
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.fieldLabel}>
+                    Base Price (INR)<span className={styles.req}>*</span>
+                  </label>
+                  <input
+                    required
+                    type="number"
+                    step="0.01"
+                    className={`${styles.input} ${editErrors.basePrice ? styles.inputError : ""}`}
+                    value={editProd.basePrice}
+                    onChange={(e) =>
+                      setEditProd({ ...editProd, basePrice: e.target.value })
+                    }
+                  />
+                  {editErrors.basePrice && (
+                    <span className={styles.fieldError}>
+                      {editErrors.basePrice}
+                    </span>
+                  )}
+                </div>
+
+                <label
+                  className={styles.full}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontSize: "13px",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={editProd.allowsCustomTailoring}
+                    onChange={(e) =>
+                      setEditProd({
+                        ...editProd,
+                        allowsCustomTailoring: e.target.checked,
+                      })
+                    }
+                  />
+                  Allows Custom Tailoring
+                </label>
+
+                <div className={`${styles.field} ${styles.full}`}>
+                  <label className={styles.fieldLabel}>
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    className={styles.textarea}
+                    value={editProd.description}
+                    onChange={(e) =>
+                      setEditProd({ ...editProd, description: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div
+                  className={styles.full}
+                  style={{ display: "flex", gap: "10px" }}
+                >
+                  <button type="submit" className={styles.btn}>
+                    Save Changes
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.btnOutline}
+                    onClick={() => setEditingId(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </section>
+          )}
 
           <section className={styles.panel}>
             <h2>Catalog Inventory</h2>
@@ -666,7 +1471,7 @@ export default function AdminPage() {
                     <th>Category</th>
                     <th>Price</th>
                     <th>Variants &amp; Stock</th>
-                    <th>Action</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -675,7 +1480,10 @@ export default function AdminPage() {
                       <td>
                         <strong>{p.name}</strong>
                         <div style={{ fontSize: "11px", color: "#7b665b" }}>
-                          {p.fabricType}
+                          {p.fabricType} ·{" "}
+                          {p.allowsCustomTailoring
+                            ? "Custom Tailoring"
+                            : "Ready-to-Wear"}
                         </div>
                       </td>
                       <td>{p.category.replace("_", " ")}</td>
@@ -692,7 +1500,11 @@ export default function AdminPage() {
                             }}
                           >
                             <span>
-                              {v.color} / {v.size} ({v.sku}):
+                              {v.color} / {v.size} ({v.sku})
+                              {v.priceAdjustment
+                                ? ` +${formatINR(v.priceAdjustment)}`
+                                : ""}
+                              :
                             </span>
                             <input
                               type="number"
@@ -710,13 +1522,22 @@ export default function AdminPage() {
                         ))}
                       </td>
                       <td>
-                        <button
-                          type="button"
-                          className={styles.btnDanger}
-                          onClick={() => handleDeleteProduct(p.id)}
-                        >
-                          Delete
-                        </button>
+                        <div style={{ display: "flex", gap: "6px" }}>
+                          <button
+                            type="button"
+                            className={styles.btnOutline}
+                            onClick={() => startEditingProduct(p)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.btnDanger}
+                            onClick={() => handleDeleteProduct(p.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -730,6 +1551,10 @@ export default function AdminPage() {
       {tab === "orders" && (
         <section className={styles.panel}>
           <h2>Orders &amp; Tailoring</h2>
+          <p className={styles.hint} style={{ marginBottom: "14px" }}>
+            Note: Setting an order status to <strong>CANCELLED</strong>{" "}
+            automatically restores variant stock in PostgreSQL.
+          </p>
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
@@ -738,8 +1563,8 @@ export default function AdminPage() {
                   <th>Customer</th>
                   <th>Items &amp; Tailoring</th>
                   <th>Total</th>
-                  <th>Order Status</th>
-                  <th>Payment</th>
+                  <th>Order Status*</th>
+                  <th>Payment*</th>
                 </tr>
               </thead>
               <tbody>
@@ -819,112 +1644,240 @@ export default function AdminPage() {
         <>
           <section className={styles.panel}>
             <h2>Send WhatsApp / SMS Broadcast</h2>
-            <form className={styles.formGrid} onSubmit={handleSendBroadcast}>
-              <select
-                className={styles.select}
-                value={broadcast.campaignType}
-                onChange={(e) =>
-                  setBroadcast({ ...broadcast, campaignType: e.target.value })
-                }
-              >
-                <option value="NEW_CATEGORY_ARRIVALS">
-                  New Category Arrivals (Auto-list)
-                </option>
-                <option value="COLLECTION">Collection Announcement</option>
-                <option value="DISCOUNT_SALE">Discounted Sale</option>
-              </select>
+            <p className={styles.hint} style={{ marginBottom: "14px" }}>
+              Fields marked with <span className={styles.req}>*</span> are
+              required based on your selected Campaign Type.
+            </p>
 
-              <select
-                className={styles.select}
-                value={broadcast.channel}
-                onChange={(e) =>
-                  setBroadcast({ ...broadcast, channel: e.target.value })
-                }
-              >
-                <option value="BOTH">WhatsApp &amp; SMS</option>
-                <option value="WHATSAPP">WhatsApp Only</option>
-                <option value="SMS">SMS Only</option>
-              </select>
+            <form
+              className={styles.formGrid}
+              onSubmit={handleSendBroadcast}
+              noValidate
+            >
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>
+                  Campaign Type<span className={styles.req}>*</span>
+                </label>
+                <select
+                  className={styles.select}
+                  value={broadcast.campaignType}
+                  onChange={(e) => {
+                    setBroadcast({
+                      ...broadcast,
+                      campaignType: e.target.value,
+                    });
+                    setBroadcastErrors({});
+                  }}
+                >
+                  <option value="NEW_CATEGORY_ARRIVALS">
+                    New Category Arrivals (Auto-list)
+                  </option>
+                  <option value="COLLECTION">Collection Announcement</option>
+                  <option value="DISCOUNT_SALE">Discounted Sale</option>
+                </select>
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>
+                  Delivery Channel<span className={styles.req}>*</span>
+                </label>
+                <select
+                  className={styles.select}
+                  value={broadcast.channel}
+                  onChange={(e) =>
+                    setBroadcast({ ...broadcast, channel: e.target.value })
+                  }
+                >
+                  <option value="BOTH">WhatsApp &amp; SMS</option>
+                  <option value="WHATSAPP">WhatsApp Only</option>
+                  <option value="SMS">SMS Only</option>
+                </select>
+              </div>
+
+              {/* Conditional Info Banner for Broadcast Mode */}
+              <div className={styles.infoBox}>
+                {broadcast.campaignType === "NEW_CATEGORY_ARRIVALS" && (
+                  <>
+                    <strong>Condition — New Category Arrivals:</strong> Requires{" "}
+                    <strong>Category*</strong> and{" "}
+                    <strong>Days Back* (1–90)</strong>. Automatically queries
+                    products created in that timeframe, builds a price + link
+                    list, and attaches the newest product&apos;s primary image
+                    on WhatsApp.
+                  </>
+                )}
+                {broadcast.campaignType === "COLLECTION" && (
+                  <>
+                    <strong>Condition — Collection Announcement:</strong>{" "}
+                    Requires <strong>Campaign Title*</strong> and{" "}
+                    <strong>Campaign Message*</strong>. Image URL and Target
+                    Shop URL are optional.
+                  </>
+                )}
+                {broadcast.campaignType === "DISCOUNT_SALE" && (
+                  <>
+                    <strong>Condition — Discounted Sale:</strong> Requires{" "}
+                    <strong>Campaign Title*</strong>,{" "}
+                    <strong>Discount %* (1–95)</strong>, and{" "}
+                    <strong>Campaign Message*</strong>. Automatically prepends
+                    &quot;Flat X% OFF!&quot; to customer messages.
+                  </>
+                )}
+              </div>
 
               {broadcast.campaignType === "NEW_CATEGORY_ARRIVALS" ? (
                 <>
-                  <select
-                    className={styles.select}
-                    value={broadcast.category}
-                    onChange={(e) =>
-                      setBroadcast({ ...broadcast, category: e.target.value })
-                    }
-                  >
-                    <option value="SHERWANI">SHERWANI</option>
-                    <option value="KURTA">KURTA</option>
-                    <option value="PYJAMA">PYJAMA</option>
-                    <option value="INDO_WESTERN">INDO_WESTERN</option>
-                  </select>
-                  <input
-                    type="number"
-                    min={1}
-                    max={90}
-                    placeholder="Days Back (e.g. 7)"
-                    className={styles.input}
-                    value={broadcast.daysBack}
-                    onChange={(e) =>
-                      setBroadcast({ ...broadcast, daysBack: e.target.value })
-                    }
-                  />
-                </>
-              ) : (
-                <>
-                  <input
-                    required
-                    placeholder="Campaign Title"
-                    className={styles.input}
-                    value={broadcast.title}
-                    onChange={(e) =>
-                      setBroadcast({ ...broadcast, title: e.target.value })
-                    }
-                  />
-                  {broadcast.campaignType === "DISCOUNT_SALE" && (
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel}>
+                      Target Category<span className={styles.req}>*</span>
+                    </label>
+                    <select
+                      className={styles.select}
+                      value={broadcast.category}
+                      onChange={(e) =>
+                        setBroadcast({ ...broadcast, category: e.target.value })
+                      }
+                    >
+                      <option value="SHERWANI">SHERWANI</option>
+                      <option value="KURTA">KURTA</option>
+                      <option value="PYJAMA">PYJAMA</option>
+                      <option value="INDO_WESTERN">INDO_WESTERN</option>
+                    </select>
+                  </div>
+
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel}>
+                      Days Back (1–90)<span className={styles.req}>*</span>
+                    </label>
                     <input
                       type="number"
                       min={1}
-                      max={95}
-                      placeholder="Discount %"
-                      className={styles.input}
-                      value={broadcast.discountPercent}
+                      max={90}
+                      required
+                      className={`${styles.input} ${broadcastErrors.daysBack ? styles.inputError : ""}`}
+                      value={broadcast.daysBack}
+                      onChange={(e) =>
+                        setBroadcast({ ...broadcast, daysBack: e.target.value })
+                      }
+                    />
+                    {broadcastErrors.daysBack && (
+                      <span className={styles.fieldError}>
+                        {broadcastErrors.daysBack}
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel}>
+                      Campaign Title<span className={styles.req}>*</span>
+                    </label>
+                    <input
+                      required
+                      placeholder="e.g. Royal Wedding Collection 2026"
+                      className={`${styles.input} ${broadcastErrors.title ? styles.inputError : ""}`}
+                      value={broadcast.title}
+                      onChange={(e) =>
+                        setBroadcast({ ...broadcast, title: e.target.value })
+                      }
+                    />
+                    {broadcastErrors.title && (
+                      <span className={styles.fieldError}>
+                        {broadcastErrors.title}
+                      </span>
+                    )}
+                  </div>
+
+                  {broadcast.campaignType === "DISCOUNT_SALE" && (
+                    <div className={styles.field}>
+                      <label className={styles.fieldLabel}>
+                        Discount Percentage (1–95%)
+                        <span className={styles.req}>*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={95}
+                        required
+                        className={`${styles.input} ${broadcastErrors.discountPercent ? styles.inputError : ""}`}
+                        value={broadcast.discountPercent}
+                        onChange={(e) =>
+                          setBroadcast({
+                            ...broadcast,
+                            discountPercent: e.target.value,
+                          })
+                        }
+                      />
+                      {broadcastErrors.discountPercent && (
+                        <span className={styles.fieldError}>
+                          {broadcastErrors.discountPercent}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel}>
+                      Image URL (Optional)
+                    </label>
+                    <input
+                      placeholder="https://... (attached on WhatsApp)"
+                      className={`${styles.input} ${broadcastErrors.imageUrl ? styles.inputError : ""}`}
+                      value={broadcast.imageUrl}
+                      onChange={(e) =>
+                        setBroadcast({ ...broadcast, imageUrl: e.target.value })
+                      }
+                    />
+                    {broadcastErrors.imageUrl && (
+                      <span className={styles.fieldError}>
+                        {broadcastErrors.imageUrl}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel}>
+                      Target Shop URL (Optional)
+                    </label>
+                    <input
+                      placeholder="https://..."
+                      className={`${styles.input} ${broadcastErrors.targetUrl ? styles.inputError : ""}`}
+                      value={broadcast.targetUrl}
                       onChange={(e) =>
                         setBroadcast({
                           ...broadcast,
-                          discountPercent: e.target.value,
+                          targetUrl: e.target.value,
                         })
                       }
                     />
-                  )}
-                  <input
-                    placeholder="Image URL (optional)"
-                    className={styles.input}
-                    value={broadcast.imageUrl}
-                    onChange={(e) =>
-                      setBroadcast({ ...broadcast, imageUrl: e.target.value })
-                    }
-                  />
-                  <input
-                    placeholder="Target Shop URL (optional)"
-                    className={styles.input}
-                    value={broadcast.targetUrl}
-                    onChange={(e) =>
-                      setBroadcast({ ...broadcast, targetUrl: e.target.value })
-                    }
-                  />
-                  <textarea
-                    required
-                    rows={3}
-                    placeholder="Campaign Message"
-                    className={`${styles.textarea} ${styles.full}`}
-                    value={broadcast.message}
-                    onChange={(e) =>
-                      setBroadcast({ ...broadcast, message: e.target.value })
-                    }
-                  />
+                    {broadcastErrors.targetUrl && (
+                      <span className={styles.fieldError}>
+                        {broadcastErrors.targetUrl}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className={`${styles.field} ${styles.full}`}>
+                    <label className={styles.fieldLabel}>
+                      Campaign Message<span className={styles.req}>*</span>
+                    </label>
+                    <textarea
+                      required
+                      rows={3}
+                      placeholder="Write promotional message (min 5 chars)..."
+                      className={`${styles.textarea} ${broadcastErrors.message ? styles.inputError : ""}`}
+                      value={broadcast.message}
+                      onChange={(e) =>
+                        setBroadcast({ ...broadcast, message: e.target.value })
+                      }
+                    />
+                    {broadcastErrors.message && (
+                      <span className={styles.fieldError}>
+                        {broadcastErrors.message}
+                      </span>
+                    )}
+                  </div>
                 </>
               )}
 
@@ -984,23 +1937,46 @@ export default function AdminPage() {
 
           <section className={styles.panel}>
             <h2>Bulk Import CSV</h2>
-            <form className={styles.formGrid} onSubmit={handleCsvImport}>
-              <select
-                className={styles.select}
-                value={importTable}
-                onChange={(e) => setImportTable(e.target.value)}
-              >
-                <option value="products">products</option>
-                <option value="variants">variants</option>
-                <option value="subscribers">subscribers</option>
-                <option value="tailoring">tailoring</option>
-              </select>
-              <input
-                type="file"
-                accept=".csv,text/csv"
-                required
-                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-              />
+            <form
+              className={styles.formGrid}
+              onSubmit={handleCsvImport}
+              noValidate
+            >
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>
+                  Target Table<span className={styles.req}>*</span>
+                </label>
+                <select
+                  className={styles.select}
+                  value={importTable}
+                  onChange={(e) => setImportTable(e.target.value)}
+                >
+                  <option value="products">products</option>
+                  <option value="variants">variants</option>
+                  <option value="subscribers">subscribers</option>
+                  <option value="tailoring">tailoring</option>
+                </select>
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>
+                  CSV File<span className={styles.req}>*</span>
+                </label>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  required
+                  onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                />
+              </div>
+
+              <div className={styles.infoBox}>
+                <strong>
+                  Required CSV Headers for &ldquo;{importTable}&rdquo;:
+                </strong>{" "}
+                {CSV_REQUIRED_HEADERS[importTable]}
+              </div>
+
               <button type="submit" className={`${styles.btn} ${styles.full}`}>
                 Upload &amp; Import CSV
               </button>
