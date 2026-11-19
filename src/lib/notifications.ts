@@ -5,6 +5,11 @@ interface SendMessageParams {
   to: string;
   body: string;
   mediaUrl?: string;
+  templateVars?: {
+    title: string;
+    details: string;
+    url: string;
+  };
 }
 
 export interface BroadcastParams {
@@ -26,18 +31,27 @@ export function normalizePhone(phone: string): string {
   return cleaned.length === 10 ? `+91${cleaned}` : `+${cleaned}`;
 }
 
+function isReachableMediaUrl(url?: string): url is string {
+  if (!url) return false;
+  return (
+    url.startsWith("https://") &&
+    !url.includes("example-s3-bucket.com") &&
+    !url.includes("localhost")
+  );
+}
+
 async function sendTwilioMessage(
   type: "WHATSAPP" | "SMS",
-  { to, body, mediaUrl }: SendMessageParams,
+  { to, body, mediaUrl, templateVars }: SendMessageParams
 ): Promise<boolean> {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from =
+  const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
+  const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
+  const rawFrom =
     type === "WHATSAPP"
-      ? process.env.TWILIO_WHATSAPP_FROM
-      : process.env.TWILIO_SMS_FROM;
+      ? process.env.TWILIO_WHATSAPP_FROM?.trim()
+      : process.env.TWILIO_SMS_FROM?.trim();
 
-  if (!accountSid || !authToken || !from) {
+  if (!accountSid || !authToken || !rawFrom) {
     console.error(`Missing Twilio config for ${type}`);
     return false;
   }
@@ -45,18 +59,36 @@ async function sendTwilioMessage(
   const normalizedTo = normalizePhone(to);
   const toAddress =
     type === "WHATSAPP" ? `whatsapp:${normalizedTo}` : normalizedTo;
+  const fromAddress =
+    type === "WHATSAPP" && !rawFrom.startsWith("whatsapp:")
+      ? `whatsapp:${rawFrom}`
+      : rawFrom;
 
+  const contentSid = process.env.TWILIO_WHATSAPP_CONTENT_SID?.trim();
   const formData = new URLSearchParams();
   formData.append("To", toAddress);
-  formData.append("From", from);
-  formData.append("Body", body);
+  formData.append("From", fromAddress);
 
-  if (type === "WHATSAPP" && mediaUrl) {
-    formData.append("MediaUrl", mediaUrl);
+  if (type === "WHATSAPP" && contentSid && templateVars) {
+    const sanitize = (text: string) => text.replace(/[\r\n]+/g, " | ").trim();
+    formData.append("ContentSid", contentSid);
+    formData.append(
+      "ContentVariables",
+      JSON.stringify({
+        "1": sanitize(templateVars.title),
+        "2": sanitize(templateVars.details),
+        "3": templateVars.url,
+      })
+    );
+  } else {
+    formData.append("Body", body);
+    if (type === "WHATSAPP" && isReachableMediaUrl(mediaUrl)) {
+      formData.append("MediaUrl", mediaUrl);
+    }
   }
 
   const credentials = Buffer.from(`${accountSid}:${authToken}`).toString(
-    "base64",
+    "base64"
   );
 
   const response = await fetch(
@@ -68,12 +100,15 @@ async function sendTwilioMessage(
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: formData.toString(),
-    },
+    }
   );
 
   if (!response.ok) {
     const errText = await response.text();
-    console.error(`Twilio ${type} failed for ${normalizedTo}:`, errText);
+    console.error(
+      `Twilio ${type} failed (From: ${fromAddress}, To: ${toAddress}):`,
+      errText
+    );
     return false;
   }
 
@@ -91,7 +126,6 @@ export async function broadcastToCustomers(params: BroadcastParams) {
   } = params;
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
   let title = params.title ?? "";
   let message = params.message ?? "";
   let imageUrl = params.imageUrl;
@@ -128,7 +162,7 @@ export async function broadcastToCustomers(params: BroadcastParams) {
 
     const itemLines = recentProducts.map(
       (p) =>
-        `• ${p.name} - ₹${Number(p.basePrice)} (${appUrl}/products/${p.id})`,
+        `• ${p.name} - ₹${Number(p.basePrice)} (${appUrl}/products/${p.id})`
     );
 
     message =
@@ -149,7 +183,7 @@ export async function broadcastToCustomers(params: BroadcastParams) {
     if (featuredProducts.length > 0) {
       const featuredLines = featuredProducts.map(
         (p) =>
-          `• ${p.name} - ₹${Number(p.basePrice)} (${appUrl}/products/${p.id})`,
+          `• ${p.name} - ₹${Number(p.basePrice)} (${appUrl}/products/${p.id})`
       );
       message = `${message}\n\nFeatured:\n${featuredLines.join("\n")}`;
       imageUrl = imageUrl || featuredProducts[0]?.images[0]?.s3Url;
@@ -182,6 +216,11 @@ export async function broadcastToCustomers(params: BroadcastParams) {
         to: sub.phone,
         body: whatsappBody,
         mediaUrl: imageUrl,
+        templateVars: {
+          title,
+          details: `${discountLine}${message}`,
+          url: targetUrl || appUrl,
+        },
       });
       if (ok) sentCount++;
       else failedCount++;
