@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { getCartSessionId } from "@/lib/session";
 import styles from "./Navbar.module.css";
