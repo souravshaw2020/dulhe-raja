@@ -51,7 +51,6 @@ export default function Navbar() {
           />
           <span>
             <span className={styles.brandName}>Royal Dulhe Raja</span>
-            <span className={styles.brandName}>Royal Dulhe Raja</span>
             <span className={styles.brandSub}>The occasion edit</span>
           </span>
         </Link>
