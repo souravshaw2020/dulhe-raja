@@ -40,7 +40,7 @@ export default function SubscriberForm() {
 
   return (
     <section className={styles.newsletter}>
-      <div className={styles.eyebrow}>A note from Dulhe Raja</div>
+      <div className={styles.eyebrow}>A note from Royal Dulhe Raja</div>
       <h2>Good things are worth dressing for.</h2>
       <p>
         Get first looks at new category arrivals, festive edits, and special

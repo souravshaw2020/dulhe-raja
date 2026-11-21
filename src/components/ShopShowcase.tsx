@@ -80,7 +80,7 @@ export default function ShopShowcase({
     >
       <div className={styles.sectionHead}>
         <div>
-          <div className={styles.eyebrow}>The Dulhe Raja edit</div>
+          <div className={styles.eyebrow}>The Royal Dulhe Raja edit</div>
           <h2>Shop customer favourites</h2>
         </div>
         <p className={styles.sectionIntro}>
@@ -125,7 +125,15 @@ export default function ShopShowcase({
                 <span className={styles.tag}>
                   {product.category.replace("_", " ")}
                 </span>
-                <Link href={`/products/${product.id}`}>
+                <Link
+                  href={`/products/${product.id}`}
+                  style={{
+                    position: "relative",
+                    display: "block",
+                    width: "100%",
+                    height: "100%",
+                  }}
+                >
                   <Image
                     src={product.imageUrl}
                     alt={product.altText}

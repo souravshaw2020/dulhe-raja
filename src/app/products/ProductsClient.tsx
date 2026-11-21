@@ -314,7 +314,15 @@ export default function ProductsClient() {
                     <span className={styles.tag}>
                       {product.category.replace("_", " ")}
                     </span>
-                    <Link href={`/products/${product.id}`}>
+                    <Link
+                      href={`/products/${product.id}`}
+                      style={{
+                        position: "relative",
+                        display: "block",
+                        width: "100%",
+                        height: "100%",
+                      }}
+                    >
                       <Image
                         src={product.images[0]?.s3Url || "/globe.svg"}
                         alt={product.images[0]?.altText || product.name}
