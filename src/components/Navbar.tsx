@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { getCartSessionId } from "@/lib/session";
 import styles from "./Navbar.module.css";
@@ -50,6 +51,7 @@ export default function Navbar() {
             className={styles.brandLogo}
           />
           <span>
+            <span className={styles.brandName}>Royal Dulhe Raja</span>
             <span className={styles.brandName}>Royal Dulhe Raja</span>
             <span className={styles.brandSub}>The occasion edit</span>
           </span>
