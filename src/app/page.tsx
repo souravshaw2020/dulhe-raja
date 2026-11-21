@@ -309,7 +309,7 @@ export default function HomePage() {
             Worn your way.
           </h2>
           <p>
-            At Dulhe Raja, we believe what you wear should feel as special as
+            At Royal Dulhe Raja, we believe what you wear should feel as special as
             the moment itself. Discover classic Indian silhouettes, rich
             occasion colours and bespoke tailoring for celebrations big and
             small.

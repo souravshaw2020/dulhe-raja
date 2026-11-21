@@ -27,7 +27,7 @@ const broadcastSchema = z
     if (data.campaignType === "NEW_CATEGORY_ARRIVALS" && !data.category) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "category is required for NEW_CATEGORY_ARRIVALS",
+        message: "Category is required for NEW_CATEGORY_ARRIVALS",
         path: ["category"],
       });
     }
@@ -41,6 +41,13 @@ const broadcastSchema = z
         message:
           "title and message are required for COLLECTION and DISCOUNT_SALE",
         path: ["title"],
+      });
+    }
+    if (data.campaignType === "DISCOUNT_SALE" && !data.discountPercent) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "discountPercent is required for DISCOUNT_SALE",
+        path: ["discountPercent"],
       });
     }
   });

@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dulhe Raja | Shree Shyam Creation — Groomwear & Ethnic Couture",
+  title: "Royal Dulhe Raja | Shree Shyam Creation — Groomwear & Ethnic Couture",
   description:
-    "Bespoke sherwanis, kurtas, pyjamas, and Indo-Western groomwear from Dulhe Raja (Shree Shyam Creation), Kolkata.",
+    "Bespoke sherwanis, kurtas, pyjamas, and Indo-Western groomwear from Royal Dulhe Raja (Shree Shyam Creation), Men's Ethnic Wear.",
 };
 
 export default function RootLayout({

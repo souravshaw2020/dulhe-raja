@@ -59,6 +59,14 @@
   color: #7b6559;
 }
 
+.brandLogo {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--site-secondary);
+}
+
 .nav {
   display: flex;
   align-items: center;

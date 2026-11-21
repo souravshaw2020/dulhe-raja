@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/auth";
 import { z } from "zod";
-import { normalizePhone } from "@/lib/notifications";
+import { isValidPhone, normalizePhone } from "@/lib/notifications";
 
 const subscribeSchema = z.object({
   name: z.string().min(1).optional(),
-  phone: z.string().min(10, "Valid phone number is required"),
+  phone: z
+    .string()
+    .refine(isValidPhone, "Valid phone number (10–15 digits) is required"),
   whatsappOptIn: z.boolean().default(true),
   smsOptIn: z.boolean().default(true),
 });
@@ -66,8 +68,11 @@ export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
   const phone = searchParams.get("phone");
 
-  if (!phone) {
-    return NextResponse.json({ error: "Phone number required" }, { status: 400 });
+  if (!phone || !isValidPhone(phone)) {
+    return NextResponse.json(
+      { error: "Valid phone number required" },
+      { status: 400 },
+    );
   }
 
   try {
@@ -80,6 +85,9 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ message: "Unsubscribed successfully" });
   } catch (error) {
     console.error("Error unsubscribing:", error);
-    return NextResponse.json({ error: "Subscriber not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Subscriber not found" },
+      { status: 404 },
+    );
   }
 }

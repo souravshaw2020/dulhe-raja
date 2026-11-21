@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import styles from "./Footer.module.css";
 
 export default function Footer() {
@@ -6,9 +7,15 @@ export default function Footer() {
     <footer className={styles.footer}>
       <div>
         <Link className={styles.brand} href="/">
-          <span className={styles.brandMark}>DR</span>
+          <Image
+            src="/royal-dulhe-raja-logo.png"
+            alt="Royal Dulhe Raja Logo"
+            width={44}
+            height={44}
+            className={styles.brandLogo}
+          />
           <span>
-            <span className={styles.brandName}>Dulhe Raja</span>
+            <span className={styles.brandName}>Royal Dulhe Raja</span>
             <span className={styles.brandSub}>Shree Shyam Creation</span>
           </span>
         </Link>
@@ -32,7 +39,7 @@ export default function Footer() {
         <Link href="/cart">Shopping bag</Link>
       </div>
       <div className={styles.footerBottom}>
-        <span>Dulhe Raja — Shree Shyam Creation, Kolkata</span>
+        <span>Royal Dulhe Raja — Shree Shyam Creation, Lower Basement, Shop No. 176 Satyanarayan Park, AC Market, Burra Bazar, Kolkata - 700 007</span>
         <span>Custom Tailoring &amp; Occasion Wear</span>
       </div>
     </footer>

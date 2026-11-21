@@ -80,7 +80,7 @@ export default function ShopShowcase({
     >
       <div className={styles.sectionHead}>
         <div>
-          <div className={styles.eyebrow}>The Dulhe Raja edit</div>
+          <div className={styles.eyebrow}>The Royal Dulhe Raja edit</div>
           <h2>Shop customer favourites</h2>
         </div>
         <p className={styles.sectionIntro}>

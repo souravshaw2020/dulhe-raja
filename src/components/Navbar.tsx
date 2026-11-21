@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { getCartSessionId } from "@/lib/session";
 import styles from "./Navbar.module.css";
@@ -40,9 +41,16 @@ export default function Navbar() {
       </div>
       <header className={styles.header}>
         <Link className={styles.brand} href="/" aria-label="Dulhe Raja home">
-          <span className={styles.brandMark}>DR</span>
+          <Image
+            src="/royal-dulhe-raja-logo.png"
+            alt="Royal Dulhe Raja Logo"
+            width={44}
+            height={44}
+            priority
+            className={styles.brandLogo}
+          />
           <span>
-            <span className={styles.brandName}>Dulhe Raja</span>
+            <span className={styles.brandName}>Royal Dulhe Raja</span>
             <span className={styles.brandSub}>The occasion edit</span>
           </span>
         </Link>
