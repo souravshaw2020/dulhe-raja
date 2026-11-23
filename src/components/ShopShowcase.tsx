@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { formatINR, getCartSessionId } from "@/lib/session";
+import { formatINR } from "@/lib/session";
+// import { getCartSessionId } from "@/lib/session";
 import styles from "@/app/page.module.css";
 
 export interface StorefrontProduct {
@@ -31,36 +32,36 @@ export default function ShopShowcase({
 }) {
   const [activeCategory, setActiveCategory] = useState("ALL");
   const [search, setSearch] = useState("");
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  // const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 2800);
-  };
+  // const showToast = (msg: string) => {
+  //   setToastMsg(msg);
+  //   setTimeout(() => setToastMsg(null), 2800);
+  // };
 
-  const handleAddToBag = async (product: StorefrontProduct) => {
-    const sessionId = getCartSessionId();
-    try {
-      const res = await fetch("/api/cart", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          productId: product.id,
-          variantId: product.defaultVariantId,
-          quantity: 1,
-        }),
-      });
-      if (!res.ok) {
-        showToast("Could not add item to bag.");
-        return;
-      }
-      window.dispatchEvent(new Event("cart-updated"));
-      showToast(`${product.name} added to your bag.`);
-    } catch {
-      showToast("Network error adding item.");
-    }
-  };
+  // const handleAddToBag = async (product: StorefrontProduct) => {
+  //   const sessionId = getCartSessionId();
+  //   try {
+  //     const res = await fetch("/api/cart", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         sessionId,
+  //         productId: product.id,
+  //         variantId: product.defaultVariantId,
+  //         quantity: 1,
+  //       }),
+  //     });
+  //     if (!res.ok) {
+  //       showToast("Could not add item to bag.");
+  //       return;
+  //     }
+  //     window.dispatchEvent(new Event("cart-updated"));
+  //     showToast(`${product.name} added to your bag.`);
+  //   } catch {
+  //     showToast("Network error adding item.");
+  //   }
+  // };
 
   const filtered = initialProducts.filter((p) => {
     const matchesCat =
@@ -143,13 +144,13 @@ export default function ShopShowcase({
                     className={styles.productImgEl}
                   />
                 </Link>
-                <button
+                {/* { <button
                   type="button"
                   className={styles.quickAdd}
                   onClick={() => handleAddToBag(product)}
                 >
                   Add to bag
-                </button>
+                </button> } */}
               </div>
               <Link
                 href={`/products/${product.id}`}
@@ -171,13 +172,13 @@ export default function ShopShowcase({
         </div>
       )}
 
-      <div
+      {/* { <div
         className={`${styles.toast} ${toastMsg ? styles.toastShow : ""}`}
         role="status"
         aria-live="polite"
       >
         {toastMsg}
-      </div>
+      </div> } */}
     </section>
   );
 }

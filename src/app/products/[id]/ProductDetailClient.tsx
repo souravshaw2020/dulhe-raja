@@ -3,7 +3,8 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { formatINR, getCartSessionId } from "@/lib/session";
+import { formatINR } from "@/lib/session";
+// import { getCartSessionId } from "@/lib/session";
 import styles from "./page.module.css";
 
 interface VariantData {
@@ -46,7 +47,7 @@ export default function ProductDetailClient({
     product.variants[0]?.id || "",
   );
   const [quantity, setQuantity] = useState(1);
-  const [bagMsg, setBagMsg] = useState<string | null>(null);
+  // const [bagMsg, setBagMsg] = useState<string | null>(null);
 
   const [showTailoring, setShowTailoring] = useState(false);
   const [tailorStatus, setTailorStatus] = useState<string | null>(null);
@@ -68,32 +69,32 @@ export default function ProductDetailClient({
   );
   const finalPrice =
     product.basePrice + (selectedVariant?.priceAdjustment || 0);
-  const outOfStock = selectedVariant ? selectedVariant.stock <= 0 : false;
+  // const outOfStock = selectedVariant ? selectedVariant.stock <= 0 : false;
 
-  const handleAddToCart = async () => {
-    setBagMsg(null);
-    const sessionId = getCartSessionId();
-    try {
-      const res = await fetch("/api/cart", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          productId: product.id,
-          variantId: selectedVariant?.id,
-          quantity,
-        }),
-      });
-      if (!res.ok) {
-        setBagMsg("Could not add to bag.");
-        return;
-      }
-      window.dispatchEvent(new Event("cart-updated"));
-      setBagMsg("Added to your bag.");
-    } catch {
-      setBagMsg("Network error.");
-    }
-  };
+  // const handleAddToCart = async () => {
+  //   setBagMsg(null);
+  //   const sessionId = getCartSessionId();
+  //   try {
+  //     const res = await fetch("/api/cart", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         sessionId,
+  //         productId: product.id,
+  //         variantId: selectedVariant?.id,
+  //         quantity,
+  //       }),
+  //     });
+  //     if (!res.ok) {
+  //       setBagMsg("Could not add to bag.");
+  //       return;
+  //     }
+  //     window.dispatchEvent(new Event("cart-updated"));
+  //     setBagMsg("Added to your bag.");
+  //   } catch {
+  //     setBagMsg("Network error.");
+  //   }
+  // };
 
   const handleSaveTailoring = async (e: FormEvent) => {
     e.preventDefault();
@@ -233,24 +234,24 @@ export default function ProductDetailClient({
               className={styles.qtyInput}
               aria-label="Quantity"
             />
-            <button
+            {/* <button
               type="button"
               disabled={outOfStock}
               onClick={handleAddToCart}
               className={styles.addBtn}
             >
               {outOfStock ? "Out of Stock" : "Add to Bag"}
-            </button>
+            </button> */}
           </div>
 
-          {bagMsg && (
+          {/* {bagMsg && (
             <p className={styles.feedback}>
               {bagMsg}{" "}
               <Link href="/cart" style={{ textDecoration: "underline" }}>
                 View Bag
               </Link>
             </p>
-          )}
+          )} */}
 
           {product.allowsCustomTailoring && (
             <div className={styles.tailoringBox}>

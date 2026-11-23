@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { formatINR, getCartSessionId } from "@/lib/session";
+import { formatINR } from "@/lib/session";
+// import { getCartSessionId } from "@/lib/session";
 import styles from "./page.module.css";
 import Loader from "@/components/Loader";
 
@@ -46,7 +47,7 @@ export default function ProductsClient() {
     colors: [],
   });
   const [loading, setLoading] = useState(true);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  // const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   useEffect(() => {
     setCategory(searchParams.get("category") || "");
@@ -100,37 +101,37 @@ export default function ProductsClient() {
     return () => controller.abort();
   }, [query, category, size, color, minPrice, maxPrice, inStock, sort, page]);
 
-  const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 2600);
-  };
+  // const showToast = (msg: string) => {
+  //   setToastMsg(msg);
+  //   setTimeout(() => setToastMsg(null), 2600);
+  // };
 
-  const handleAddToBag = async (product: ProductItem) => {
-    const sessionId = getCartSessionId();
-    const defaultVariant =
-      product.variants.find((v) => v.stock > 0) || product.variants[0];
+  // const handleAddToBag = async (product: ProductItem) => {
+  //   const sessionId = getCartSessionId();
+  //   const defaultVariant =
+  //     product.variants.find((v) => v.stock > 0) || product.variants[0];
 
-    try {
-      const res = await fetch("/api/cart", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          productId: product.id,
-          variantId: defaultVariant?.id,
-          quantity: 1,
-        }),
-      });
-      if (!res.ok) {
-        showToast("Could not add item to bag.");
-        return;
-      }
-      window.dispatchEvent(new Event("cart-updated"));
-      showToast(`${product.name} added to your bag.`);
-    } catch {
-      showToast("Network error.");
-    }
-  };
+  //   try {
+  //     const res = await fetch("/api/cart", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         sessionId,
+  //         productId: product.id,
+  //         variantId: defaultVariant?.id,
+  //         quantity: 1,
+  //       }),
+  //     });
+  //     if (!res.ok) {
+  //       showToast("Could not add item to bag.");
+  //       return;
+  //     }
+  //     window.dispatchEvent(new Event("cart-updated"));
+  //     showToast(`${product.name} added to your bag.`);
+  //   } catch {
+  //     showToast("Network error.");
+  //   }
+  // };
 
   const resetFilters = () => {
     setCategory("");
@@ -338,13 +339,13 @@ export default function ProductsClient() {
                         className={styles.img}
                       />
                     </Link>
-                    <button
+                    {/* <button
                       type="button"
                       className={styles.quickAdd}
                       onClick={() => handleAddToBag(product)}
                     >
                       Add to bag
-                    </button>
+                    </button> */}
                   </div>
                   <Link
                     href={`/products/${product.id}`}
@@ -391,12 +392,12 @@ export default function ProductsClient() {
         </div>
       </div>
 
-      <div
+      {/* <div
         className={`${styles.toast} ${toastMsg ? styles.toastShow : ""}`}
         role="status"
       >
         {toastMsg}
-      </div>
+      </div> */}
     </main>
   );
 }

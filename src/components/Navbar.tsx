@@ -2,37 +2,37 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { getCartSessionId } from "@/lib/session";
+// import { useEffect, useState } from "react";
+// import { getCartSessionId } from "@/lib/session";
 import styles from "./Navbar.module.css";
 
 export default function Navbar() {
-  const [cartCount, setCartCount] = useState(0);
+  // const [cartCount, setCartCount] = useState(0);
 
-  useEffect(() => {
-    const loadCount = async () => {
-      const sessionId = getCartSessionId();
-      if (!sessionId) return;
-      try {
-        const res = await fetch(
-          `/api/cart?sessionId=${encodeURIComponent(sessionId)}`,
-        );
-        if (!res.ok) return;
-        const data = (await res.json()) as { items?: { quantity: number }[] };
-        const total = (data.items || []).reduce(
-          (sum, item) => sum + item.quantity,
-          0,
-        );
-        setCartCount(total);
-      } catch {
-        // ignore transient network errors
-      }
-    };
+  // useEffect(() => {
+  //   const loadCount = async () => {
+  //     const sessionId = getCartSessionId();
+  //     if (!sessionId) return;
+  //     try {
+  //       const res = await fetch(
+  //         `/api/cart?sessionId=${encodeURIComponent(sessionId)}`,
+  //       );
+  //       if (!res.ok) return;
+  //       const data = (await res.json()) as { items?: { quantity: number }[] };
+  //       const total = (data.items || []).reduce(
+  //         (sum, item) => sum + item.quantity,
+  //         0,
+  //       );
+  //       setCartCount(total);
+  //     } catch {
+  //       // ignore transient network errors
+  //     }
+  //   };
 
-    loadCount();
-    window.addEventListener("cart-updated", loadCount);
-    return () => window.removeEventListener("cart-updated", loadCount);
-  }, []);
+  //   loadCount();
+  //   window.addEventListener("cart-updated", loadCount);
+  //   return () => window.removeEventListener("cart-updated", loadCount);
+  // }, []);
 
   return (
     <>
@@ -61,7 +61,7 @@ export default function Navbar() {
           <Link href="/products?category=KURTA">Kurtas</Link>
           <Link href="/products?category=PYJAMA">Pyjamas</Link>
           <Link href="/products?category=INDO_WESTERN">Indo-Western</Link>
-          <Link href="/track-order">Track Order</Link>
+          {/* <Link href="/track-order">Track Order</Link> */}
         </nav>
 
         <div className={styles.headerActions}>
@@ -82,7 +82,7 @@ export default function Navbar() {
               <path d="m16 16 5 5" />
             </svg>
           </Link>
-          <Link
+          {/* <Link
             href="/cart"
             className={styles.iconBtn}
             aria-label="View shopping bag"
@@ -99,7 +99,7 @@ export default function Navbar() {
               <path d="M9 9V6a3 3 0 0 1 6 0v3" />
             </svg>
             <span className={styles.cartCount}>{cartCount}</span>
-          </Link>
+          </Link> */}
           <Link href="/admin" className={styles.adminLink}>
             Admin
           </Link>

@@ -35,11 +35,15 @@ export default function Footer() {
       </div>
       <div>
         <h4>Need a hand?</h4>
-        <Link href="/track-order">Track your order</Link>
-        <Link href="/cart">Shopping bag</Link>
+        {/* <Link href="/track-order">Track your order</Link>
+        <Link href="/cart">Shopping bag</Link> */}
+        <Link href="/products">Browse collection</Link>
       </div>
       <div className={styles.footerBottom}>
-        <span>Royal Dulhe Raja — Shree Shyam Creation, Lower Basement, Shop No. 176, Satyanarayan Park, AC Market, Burra Bazar, Kolkata - 700 007</span>
+        <span>
+          Royal Dulhe Raja — Shree Shyam Creation, Lower Basement, Shop No. 176,
+          Satyanarayan Park, AC Market, Burra Bazar, Kolkata - 700 007
+        </span>
         <span>Custom Tailoring &amp; Occasion Wear</span>
       </div>
     </footer>
