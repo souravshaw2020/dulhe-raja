@@ -154,6 +154,26 @@ export default function AdminPage() {
   });
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
 
+  // Edit / Add Variant state
+  const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
+  const [editVariant, setEditVariant] = useState({
+    color: "",
+    size: "",
+    stock: "0",
+    priceAdjustment: "",
+  });
+
+  const [addingVariantForProductId, setAddingVariantForProductId] = useState<
+    string | null
+  >(null);
+  const [newVariant, setNewVariant] = useState({
+    color: "",
+    size: "",
+    sku: "",
+    stock: "1",
+    priceAdjustment: "",
+  });
+
   // Broadcast state
   const [broadcast, setBroadcast] = useState({
     campaignType: "NEW_CATEGORY_ARRIVALS",
@@ -545,23 +565,131 @@ export default function AdminPage() {
     }
   };
 
-  const handleUpdateStock = async (variantId: string, stock: number) => {
+  const startEditingVariant = (v: ProductRow["variants"][number]) => {
+    setEditingVariantId(v.id);
+    setEditVariant({
+      color: v.color,
+      size: v.size,
+      stock: String(v.stock),
+      priceAdjustment:
+        v.priceAdjustment !== null && v.priceAdjustment !== undefined
+          ? String(v.priceAdjustment)
+          : "",
+    });
+  };
+
+  const handleSaveVariant = async (variantId: string) => {
     setStatusMsg(null);
+    const parsedStock = parseInt(editVariant.stock, 10);
+    if (
+      !editVariant.color.trim() ||
+      !editVariant.size.trim() ||
+      Number.isNaN(parsedStock) ||
+      parsedStock < 0
+    ) {
+      setStatusMsg("Variant color, size, and non-negative stock are required.");
+      return;
+    }
+
+    const adj =
+      editVariant.priceAdjustment.trim() !== ""
+        ? Number(editVariant.priceAdjustment)
+        : null;
+
+    if (adj !== null && Number.isNaN(adj)) {
+      setStatusMsg("Price adjustment must be a valid number.");
+      return;
+    }
+
     try {
       const res = await fetch(`/api/variants/${variantId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stock: Math.max(0, stock) }),
+        body: JSON.stringify({
+          color: editVariant.color.trim(),
+          size: editVariant.size.trim(),
+          stock: parsedStock,
+          priceAdjustment: adj,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        setStatusMsg(data.error || "Failed to update variant.");
+        return;
+      }
+
+      setEditingVariantId(null);
+      setStatusMsg("Variant updated.");
+      await loadAdminData();
+    } catch {
+      setStatusMsg("Network error updating variant.");
+    }
+  };
+
+  const handleDeleteVariant = async (variantId: string) => {
+    setStatusMsg(null);
+    try {
+      const res = await fetch(`/api/variants/${variantId}`, {
+        method: "DELETE",
       });
       if (!res.ok) {
         const data = (await res.json()) as { error?: string };
-        setStatusMsg(data.error || "Failed to update variant stock.");
+        setStatusMsg(data.error || "Failed to delete variant.");
         return;
       }
-      setStatusMsg("Variant stock updated.");
+      setStatusMsg("Variant deleted.");
       await loadAdminData();
     } catch {
-      setStatusMsg("Network error updating stock.");
+      setStatusMsg("Network error deleting variant.");
+    }
+  };
+
+  const handleAddVariantToProduct = async (productId: string) => {
+    setStatusMsg(null);
+    if (
+      !newVariant.color.trim() ||
+      !newVariant.size.trim() ||
+      newVariant.sku.trim().length < 3
+    ) {
+      setStatusMsg("Color, size, and SKU (min 3 chars) are required.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/products/${productId}/variants`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          color: newVariant.color.trim(),
+          size: newVariant.size.trim(),
+          sku: newVariant.sku.trim(),
+          stock: Math.max(0, parseInt(newVariant.stock, 10) || 0),
+          priceAdjustment:
+            newVariant.priceAdjustment.trim() !== ""
+              ? Number(newVariant.priceAdjustment)
+              : null,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        setStatusMsg(data.error || "Failed to add variant.");
+        return;
+      }
+
+      setAddingVariantForProductId(null);
+      setNewVariant({
+        color: "",
+        size: "",
+        sku: "",
+        stock: "1",
+        priceAdjustment: "",
+      });
+      setStatusMsg("Variant added.");
+      await loadAdminData();
+    } catch {
+      setStatusMsg("Network error adding variant.");
     }
   };
 
@@ -722,12 +850,9 @@ export default function AdminPage() {
 
   if (!authChecked) {
     return (
-      <>
+      <main className={styles.wrapper}>
         <Loader variant="page" />
-        <main className={styles.wrapper} style={{ justifySelf: "center" }}>
-          Checking admin session...
-        </main>
-      </>
+      </main>
     );
   }
 
@@ -1502,32 +1627,244 @@ export default function AdminPage() {
                             key={v.id}
                             style={{
                               display: "flex",
-                              gap: "8px",
+                              flexWrap: "wrap",
+                              gap: "6px",
                               alignItems: "center",
-                              marginBottom: "4px",
+                              marginBottom: "8px",
+                              paddingBottom: "6px",
+                              borderBottom: "1px dashed #efe6da",
                             }}
                           >
-                            <span>
-                              {v.color} / {v.size} ({v.sku})
-                              {v.priceAdjustment
-                                ? ` +${formatINR(v.priceAdjustment)}`
-                                : ""}
-                              :
-                            </span>
+                            {editingVariantId === v.id ? (
+                              <>
+                                <input
+                                  placeholder="Color"
+                                  value={editVariant.color}
+                                  onChange={(e) =>
+                                    setEditVariant({
+                                      ...editVariant,
+                                      color: e.target.value,
+                                    })
+                                  }
+                                  style={{
+                                    width: "100px",
+                                    padding: "3px 6px",
+                                    border: "1px solid #d9c8b7",
+                                  }}
+                                />
+                                <input
+                                  placeholder="Size"
+                                  value={editVariant.size}
+                                  onChange={(e) =>
+                                    setEditVariant({
+                                      ...editVariant,
+                                      size: e.target.value,
+                                    })
+                                  }
+                                  style={{
+                                    width: "54px",
+                                    padding: "3px 6px",
+                                    border: "1px solid #d9c8b7",
+                                  }}
+                                />
+                                <input
+                                  type="number"
+                                  min="0"
+                                  placeholder="Stock"
+                                  value={editVariant.stock}
+                                  onChange={(e) =>
+                                    setEditVariant({
+                                      ...editVariant,
+                                      stock: e.target.value,
+                                    })
+                                  }
+                                  style={{
+                                    width: "60px",
+                                    padding: "3px 6px",
+                                    border: "1px solid #d9c8b7",
+                                  }}
+                                />
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="+Adj"
+                                  value={editVariant.priceAdjustment}
+                                  onChange={(e) =>
+                                    setEditVariant({
+                                      ...editVariant,
+                                      priceAdjustment: e.target.value,
+                                    })
+                                  }
+                                  style={{
+                                    width: "76px",
+                                    padding: "3px 6px",
+                                    border: "1px solid #d9c8b7",
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  className={styles.btnOutline}
+                                  onClick={() => handleSaveVariant(v.id)}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.btnOutline}
+                                  onClick={() => setEditingVariantId(null)}
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span>
+                                  {v.color} / {v.size} ({v.sku})
+                                  {v.priceAdjustment
+                                    ? ` +${formatINR(v.priceAdjustment)}`
+                                    : ""}{" "}
+                                  · Stock: <strong>{v.stock}</strong>
+                                </span>
+                                <button
+                                  type="button"
+                                  className={styles.btnOutline}
+                                  onClick={() => startEditingVariant(v)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.btnDanger}
+                                  onClick={() => handleDeleteVariant(v.id)}
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        ))}
+
+                        {addingVariantForProductId === p.id ? (
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: "6px",
+                              marginTop: "6px",
+                            }}
+                          >
                             <input
-                              type="number"
-                              defaultValue={v.stock}
+                              placeholder="Color*"
+                              value={newVariant.color}
+                              onChange={(e) =>
+                                setNewVariant({
+                                  ...newVariant,
+                                  color: e.target.value,
+                                })
+                              }
                               style={{
-                                width: "64px",
+                                width: "90px",
                                 padding: "3px 6px",
                                 border: "1px solid #d9c8b7",
                               }}
-                              onBlur={(e) =>
-                                handleUpdateStock(v.id, Number(e.target.value))
-                              }
                             />
+                            <input
+                              placeholder="Size*"
+                              value={newVariant.size}
+                              onChange={(e) =>
+                                setNewVariant({
+                                  ...newVariant,
+                                  size: e.target.value,
+                                })
+                              }
+                              style={{
+                                width: "54px",
+                                padding: "3px 6px",
+                                border: "1px solid #d9c8b7",
+                              }}
+                            />
+                            <input
+                              placeholder="SKU*"
+                              value={newVariant.sku}
+                              onChange={(e) =>
+                                setNewVariant({
+                                  ...newVariant,
+                                  sku: e.target.value,
+                                })
+                              }
+                              style={{
+                                width: "110px",
+                                padding: "3px 6px",
+                                border: "1px solid #d9c8b7",
+                              }}
+                            />
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="Stock*"
+                              value={newVariant.stock}
+                              onChange={(e) =>
+                                setNewVariant({
+                                  ...newVariant,
+                                  stock: e.target.value,
+                                })
+                              }
+                              style={{
+                                width: "60px",
+                                padding: "3px 6px",
+                                border: "1px solid #d9c8b7",
+                              }}
+                            />
+                            <input
+                              type="number"
+                              step="0.01"
+                              placeholder="+Adj"
+                              value={newVariant.priceAdjustment}
+                              onChange={(e) =>
+                                setNewVariant({
+                                  ...newVariant,
+                                  priceAdjustment: e.target.value,
+                                })
+                              }
+                              style={{
+                                width: "70px",
+                                padding: "3px 6px",
+                                border: "1px solid #d9c8b7",
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className={styles.btnOutline}
+                              onClick={() => handleAddVariantToProduct(p.id)}
+                            >
+                              Add
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.btnOutline}
+                              onClick={() => setAddingVariantForProductId(null)}
+                            >
+                              Cancel
+                            </button>
                           </div>
-                        ))}
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.btnOutline}
+                            onClick={() => {
+                              setAddingVariantForProductId(p.id);
+                              setNewVariant({
+                                color: p.variants[0]?.color || "",
+                                size: "",
+                                sku: "",
+                                stock: "1",
+                                priceAdjustment: "",
+                              });
+                            }}
+                          >
+                            + Add Variant
+                          </button>
+                        )}
                       </td>
                       <td>
                         <div style={{ display: "flex", gap: "6px" }}>
