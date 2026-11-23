@@ -1,3 +1,4 @@
+import Loader from "@/components/Loader";
 import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
@@ -281,7 +282,8 @@ export default function HomePage() {
       <Suspense
         fallback={
           <section className={`${styles.section} ${styles.productsSection}`}>
-            <p style={{ color: "#7b665b" }}>Loading collection...</p>
+            <Loader variant="section"/>
+            <p style={{ color: "#7b665b", justifySelf: "center" }}>Loading collection...</p>
           </section>
         }
       >
@@ -309,8 +311,8 @@ export default function HomePage() {
             Worn your way.
           </h2>
           <p>
-            At Royal Dulhe Raja, we believe what you wear should feel as special as
-            the moment itself. Discover classic Indian silhouettes, rich
+            At Royal Dulhe Raja, we believe what you wear should feel as special
+            as the moment itself. Discover classic Indian silhouettes, rich
             occasion colours and bespoke tailoring for celebrations big and
             small.
           </p>

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { getAdminSession } from "@/lib/auth";
 import SwaggerClient from "./SwaggerClient";
+import Loader from "@/components/Loader";
 
 async function ProtectedSwagger() {
   await connection();
@@ -18,7 +19,7 @@ async function ProtectedSwagger() {
 export default function ApiDocsPage() {
   return (
     <Suspense
-      fallback={<p style={{ padding: "2rem" }}>Checking admin session...</p>}
+      fallback={<p style={{ padding: "2rem", justifySelf: "center" }}><Loader variant="page" />Checking admin session...</p>}
     >
       <ProtectedSwagger />
     </Suspense>

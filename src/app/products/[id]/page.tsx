@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import ProductDetailClient, { ProductDetailData } from "./ProductDetailClient";
 import { ProductImage } from "@prisma/client";
+import Loader from "@/components/Loader";
 
 async function ProductContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -52,7 +53,7 @@ export default function ProductDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<p style={{ padding: "3rem" }}>Loading product...</p>}>
+    <Suspense fallback={<p style={{ padding: "3rem", justifySelf: "center" }}><Loader variant="page" />Loading product...</p>}>
       <ProductContent params={params} />
     </Suspense>
   );

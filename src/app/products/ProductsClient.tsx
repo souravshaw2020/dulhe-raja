@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { formatINR, getCartSessionId } from "@/lib/session";
 import styles from "./page.module.css";
+import Loader from "@/components/Loader";
 
 interface ProductItem {
   id: string;
@@ -301,7 +302,7 @@ export default function ProductsClient() {
 
         <div>
           {loading ? (
-            <p style={{ color: "#7b665b" }}>Loading styles...</p>
+            <p style={{ color: "#7b665b", justifySelf: "center" }}><Loader variant="section" />Loading styles...</p>
           ) : products.length === 0 ? (
             <p style={{ color: "#7b665b" }}>
               No matching styles found. Try clearing some filters.

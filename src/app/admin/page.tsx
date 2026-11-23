@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatINR } from "@/lib/session";
 import styles from "./page.module.css";
+import Loader from "@/components/Loader";
 
 type AdminTab = "products" | "orders" | "broadcasts" | "csv";
 
@@ -720,7 +721,7 @@ export default function AdminPage() {
   };
 
   if (!authChecked) {
-    return <main className={styles.wrapper}>Checking admin session...</main>;
+    return <main className={styles.wrapper} style={{ justifySelf: "center" }}><Loader variant="page" />Checking admin session...</main>;
   }
 
   if (!authenticated) {
