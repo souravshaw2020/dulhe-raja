@@ -302,14 +302,19 @@ export default function ProductsClient() {
 
         <div>
           {loading ? (
-            <p style={{ color: "#7b665b", justifySelf: "center" }}><Loader variant="section" />Loading styles...</p>
+            <>
+              <Loader variant="section" />
+              <p style={{ color: "#7b665b", justifySelf: "center" }}>
+                Loading styles...
+              </p>
+            </>
           ) : products.length === 0 ? (
             <p style={{ color: "#7b665b" }}>
               No matching styles found. Try clearing some filters.
             </p>
           ) : (
             <div className={styles.grid}>
-              {products.map((product) => (
+              {products.map((product, index) => (
                 <article key={product.id} className={styles.card}>
                   <div className={styles.imageWrap}>
                     <span className={styles.tag}>
@@ -328,6 +333,7 @@ export default function ProductsClient() {
                         src={product.images[0]?.s3Url || "/globe.svg"}
                         alt={product.images[0]?.altText || product.name}
                         fill
+                        loading={index < 3 ? "eager" : "lazy"}
                         sizes="(max-width: 900px) 50vw, 25vw"
                         className={styles.img}
                       />

@@ -53,7 +53,14 @@ export default function ProductDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<p style={{ padding: "3rem", justifySelf: "center" }}><Loader variant="page" />Loading product...</p>}>
+    <Suspense
+      fallback={
+        <>
+          <Loader variant="page" />
+          <p style={{ padding: "3rem" }}>Loading product...</p>
+        </>
+      }
+    >
       <ProductContent params={params} />
     </Suspense>
   );

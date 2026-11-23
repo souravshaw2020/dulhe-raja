@@ -5,7 +5,12 @@ import Loader from "@/components/Loader";
 export default function TrackOrderPage() {
   return (
     <Suspense
-      fallback={<p style={{ padding: "3rem", justifySelf: "center" }}><Loader variant="page" />Loading order tracker...</p>}
+      fallback={
+        <>
+          <Loader variant="page" />
+          <p style={{ padding: "3rem" }}>Loading order tracker...</p>
+        </>
+      }
     >
       <TrackOrderClient />
     </Suspense>

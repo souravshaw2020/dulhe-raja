@@ -151,6 +151,7 @@ export default function ProductDetailClient({
               src={activeImage}
               alt={product.name}
               fill
+              loading="eager"
               sizes="(max-width: 820px) 100vw, 50vw"
               className={styles.mainImg}
             />

@@ -283,7 +283,7 @@ export default function HomePage() {
         fallback={
           <section className={`${styles.section} ${styles.productsSection}`}>
             <Loader variant="section"/>
-            <p style={{ color: "#7b665b", justifySelf: "center" }}>Loading collection...</p>
+            <p style={{ color: "#7b665b" }}>Loading collection...</p>
           </section>
         }
       >

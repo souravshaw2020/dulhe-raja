@@ -78,7 +78,12 @@ export default function TrackOrderClient() {
         <button type="submit">Track</button>
       </form>
 
-      {loading && <p style={{ color: "#7b665b", justifySelf: "center" }}><Loader variant="compact" />Looking up order...</p>}
+      {loading && (
+        <>
+          <Loader variant="compact" />
+          <p style={{ color: "#7b665b" }}>Looking up order...</p>
+        </>
+      )}
       {error && <p style={{ color: "#b42318", fontSize: "13px" }}>{error}</p>}
 
       {order && (

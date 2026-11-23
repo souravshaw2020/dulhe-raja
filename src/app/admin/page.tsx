@@ -721,7 +721,14 @@ export default function AdminPage() {
   };
 
   if (!authChecked) {
-    return <main className={styles.wrapper} style={{ justifySelf: "center" }}><Loader variant="page" />Checking admin session...</main>;
+    return (
+      <>
+        <Loader variant="page" />
+        <main className={styles.wrapper} style={{ justifySelf: "center" }}>
+          Checking admin session...
+        </main>
+      </>
+    );
   }
 
   if (!authenticated) {

@@ -133,7 +133,10 @@ export default function CartPage() {
       )}
 
       {loading ? (
-        <p style={{ color: "#7b665b", justifySelf: "center" }}><Loader variant="section" />Loading your bag...</p>
+        <>
+          <Loader variant="section" />
+          <p style={{ color: "#7b665b" }}>Loading your bag...</p>
+        </>
       ) : items.length === 0 ? (
         <div style={{ padding: "32px 0" }}>
           <p style={{ color: "#7b665b", marginBottom: "18px" }}>

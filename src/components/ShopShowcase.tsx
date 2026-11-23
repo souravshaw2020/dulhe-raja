@@ -119,7 +119,7 @@ export default function ShopShowcase({
         </p>
       ) : (
         <div className={styles.products}>
-          {filtered.map((product) => (
+          {filtered.map((product, index) => (
             <article key={product.id} className={styles.product}>
               <div className={styles.productImage}>
                 <span className={styles.tag}>
@@ -138,6 +138,7 @@ export default function ShopShowcase({
                     src={product.imageUrl}
                     alt={product.altText}
                     fill
+                    loading={index < 2 ? "eager" : "lazy"}
                     sizes="(max-width: 650px) 50vw, 25vw"
                     className={styles.productImgEl}
                   />

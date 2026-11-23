@@ -26,7 +26,6 @@ export default function Loader({
           alt=""
           width={size}
           height={size}
-          priority
           className={styles.logo}
         />
       </div>
